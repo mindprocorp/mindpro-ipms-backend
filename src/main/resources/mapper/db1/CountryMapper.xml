@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    @author  : mindpro
+    @fileName: CountryMapper.xml
+    @since   : 2026. 04. 28.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.registry.repository.db1.CountryMapper">
+
+    <!-- 전체 국가 목록 조회 -->
+    <select id="findAllCountries" resultType="kr.co.mindpro.ipms.domain.registry.vo.CountryVO">
+        SELECT
+            ctry_code  AS ctryCode,
+            ctry_ko_nm AS ctryNmKo,
+            ctry_en_nm AS ctryNmEn
+        FROM "MP_IPMS_PA".utb_contry_code
+        WHERE org_ind = 'C'
+        ORDER BY ctry_ko_nm ASC
+    </select>
+
+    <!-- 키워드로 국가 검색 (국가코드 또는 국가명) -->
+    <select id="findCountriesByKeyword" resultType="kr.co.mindpro.ipms.domain.registry.vo.CountryVO">
+        SELECT
+            ctry_code  AS ctryCode,
+            ctry_ko_nm AS ctryNmKo,
+            ctry_en_nm AS ctryNmEn
+        FROM "MP_IPMS_PA".utb_contry_code
+        WHERE org_ind = 'C'
+          AND (
+              ctry_code  ILIKE '%' || #{keyword} || '%'
+           OR ctry_ko_nm ILIKE '%' || #{keyword} || '%'
+           OR ctry_en_nm ILIKE '%' || #{keyword} || '%'
+          )
+        ORDER BY ctry_ko_nm ASC
+    </select>
+
+</mapper>

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.organization.repository.db1.FormTemplateMapper">
+
+    <!-- 목록 조회 (hasWriteAuth / hasReadAuth 포함) -->
+    <select id="selectTemplateList" resultType="kr.co.mindpro.ipms.domain.organization.vo.FormTemplateVO">
+        SELECT F.form_template_seq AS "formTemplateSeq",
+               F.office_seq        AS "officeSeq",
+               F.category_code     AS "categoryCode",
+               F.template_name     AS "templateName",
+               F.use_yn            AS "useYn",
+               F.doc_modify_yn     AS "docModifyYn",
+               F.sort_ord          AS "sortOrd",
+               F.doc_num_yn        AS "docNumYn",
+               F.footer_yn         AS "footerYn",
+               F.external_yn       AS "externalYn",
+               F.redirect_url      AS "redirectUrl",
+               F.appr_template_seq  AS "apprTemplateSeq",
+               F.appr_required_yn   AS "apprRequiredYn",
+               F.appr_admin_set_yn  AS "apprAdminSetYn",
+               F.appr_default_line_yn AS "apprDefaultLineYn",
+               F.appr_cond_line_yn  AS "apprCondLineYn",
+               F.appr_change_allow_yn AS "apprChangeAllowYn",
+               F.appr_skip_upper_yn AS "apprSkipUpperYn",
+               F.fully_approve_yn   AS "fullyApproveYn",
+               F.receive_yn        AS "receiveYn",
+               F.receive_timing    AS "receiveTiming",
+               F.receive_change_yn AS "receiveChangeYn",
+               F.share_scope       AS "shareScope",
+               F.share_timing      AS "shareTiming",
+               F.share_change_yn   AS "shareChangeYn",
+               F.create_user       AS "createUser",
+               F.create_at         AS "createAt",
+               F.update_user       AS "updateUser",
+               F.update_at         AS "updateAt",
+               F.del_yn            AS "delYn",
+               F.note,
+               /* 작성권한: WRITE_AUTH 대상이 없거나, 있으면 현재 사용자가 포함된 경우 */
+               (NOT EXISTS (
+                   SELECT 1 FROM utb_form_template_target T
+                   WHERE T.form_template_seq = F.form_template_seq
+                     AND T.target_role = 'WRITE_AUTH' AND T.del_yn = 'N'
+               ) OR EXISTS (
+                   SELECT 1 FROM utb_form_template_target T
+                   WHERE T.form_template_seq = F.form_template_seq
+                     AND T.target_role = 'WRITE_AUTH'
+                     AND T.ref_seq = #{userMstSeq} AND T.del_yn = 'N'
+               )) AS "hasWriteAuth",
+               /* 열람권한: READ_AUTH 대상이 없거나, 있으면 현재 사용자가 포함된 경우 */
+               (NOT EXISTS (
+                   SELECT 1 FROM utb_form_template_target T
+                   WHERE T.form_template_seq = F.form_template_seq
+                     AND T.target_role = 'READ_AUTH' AND T.del_yn = 'N'
+               ) OR EXISTS (
+                   SELECT 1 FROM utb_form_template_target T
+                   WHERE T.form_template_seq = F.form_template_seq
+                     AND T.target_role = 'READ_AUTH'
+                     AND T.ref_seq = #{userMstSeq} AND T.del_yn = 'N'
+               )) AS "hasReadAuth"
+        FROM utb_form_template F
+        WHERE F.office_seq = #{officeSeq}
+          AND F.del_yn = 'N'
+        <if test="categoryCode != null and categoryCode != ''">
+          AND F.category_code = #{categoryCode}
+        </if>
+        <if test="templateName != null and templateName != ''">
+          AND F.template_name LIKE '%' || #{templateName} || '%'
+        </if>
+        ORDER BY F.sort_ord ASC, F.create_at DESC
+    </select>
+
+    <!-- 단건 조회 (template_data 포함) -->
+    <select id="selectTemplateBySeq" resultType="kr.co.mindpro.ipms.domain.organization.vo.FormTemplateVO">
+        SELECT form_template_seq, office_seq, category_code, template_name,
+               use_yn, doc_modify_yn, template_data, sort_ord,
+               doc_num_yn, doc_num_format, footer_yn, footer_content,
+               external_yn, redirect_url,
+               appr_template_seq, appr_required_yn, appr_admin_set_yn,
+               appr_default_line_yn, appr_cond_line_yn, appr_change_allow_yn,
+               appr_skip_upper_yn, fully_approve_yn,
+               receive_yn, receive_timing, receive_change_yn,
+               share_scope, share_timing, share_change_yn,
+               create_user, create_at, update_user, update_at, del_yn, note
+        FROM utb_form_template
+        WHERE form_template_seq = #{formTemplateSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <!-- 등록 -->
+    <insert id="insertTemplate" parameterType="kr.co.mindpro.ipms.domain.organization.vo.FormTemplateVO">
+        <selectKey keyProperty="formTemplateSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_form_template')
+        </selectKey>
+        INSERT INTO utb_form_template (
+            form_template_seq, office_seq, category_code, template_name,
+            use_yn, doc_modify_yn, template_data, sort_ord,
+            doc_num_yn, doc_num_format, footer_yn, footer_content,
+            external_yn, redirect_url,
+            appr_template_seq, appr_required_yn, appr_admin_set_yn,
+            appr_default_line_yn, appr_cond_line_yn, appr_change_allow_yn,
+            appr_skip_upper_yn, fully_approve_yn,
+            receive_yn, receive_timing, receive_change_yn,
+            share_scope, share_timing, share_change_yn,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{formTemplateSeq}, #{officeSeq}, #{categoryCode}, #{templateName},
+            COALESCE(#{useYn}, 'Y'), COALESCE(#{docModifyYn}, 'N'), #{templateData}, #{sortOrd},
+            COALESCE(#{docNumYn}, 'N'), #{docNumFormat}, COALESCE(#{footerYn}, 'N'), #{footerContent},
+            COALESCE(#{externalYn}, 'N'), #{redirectUrl},
+            #{apprTemplateSeq}, COALESCE(#{apprRequiredYn}, 'N'), COALESCE(#{apprAdminSetYn}, 'N'),
+            COALESCE(#{apprDefaultLineYn}, 'N'), COALESCE(#{apprCondLineYn}, 'N'), COALESCE(#{apprChangeAllowYn}, 'N'),
+            COALESCE(#{apprSkipUpperYn}, 'N'), COALESCE(#{fullyApproveYn}, 'N'),
+            COALESCE(#{receiveYn}, 'N'), COALESCE(#{receiveTiming}, 'APPROVED'), COALESCE(#{receiveChangeYn}, 'Y'),
+            #{shareScope}, #{shareTiming}, COALESCE(#{shareChangeYn}, 'N'),
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 수정 -->
+    <update id="updateTemplate" parameterType="kr.co.mindpro.ipms.domain.organization.vo.FormTemplateVO">
+        UPDATE utb_form_template
+        SET template_name = #{templateName},
+            category_code = #{categoryCode},
+            use_yn = #{useYn},
+            doc_modify_yn = #{docModifyYn},
+            template_data = #{templateData},
+            sort_ord = #{sortOrd},
+            doc_num_yn = #{docNumYn},
+            doc_num_format = #{docNumFormat},
+            footer_yn = #{footerYn},
+            footer_content = #{footerContent},
+            external_yn = #{externalYn},
+            redirect_url = #{redirectUrl},
+            appr_template_seq = #{apprTemplateSeq},
+            appr_required_yn = #{apprRequiredYn},
+            appr_admin_set_yn = #{apprAdminSetYn},
+            appr_default_line_yn = #{apprDefaultLineYn},
+            appr_cond_line_yn = #{apprCondLineYn},
+            appr_change_allow_yn = #{apprChangeAllowYn},
+            appr_skip_upper_yn = #{apprSkipUpperYn},
+            fully_approve_yn = #{fullyApproveYn},
+            receive_yn = #{receiveYn},
+            receive_timing = #{receiveTiming},
+            receive_change_yn = #{receiveChangeYn},
+            share_scope = #{shareScope},
+            share_timing = #{shareTiming},
+            share_change_yn = #{shareChangeYn},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE form_template_seq = #{formTemplateSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 삭제 (논리) -->
+    <update id="deleteTemplate">
+        UPDATE utb_form_template
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE form_template_seq = #{formTemplateSeq}
+    </update>
+
+</mapper>

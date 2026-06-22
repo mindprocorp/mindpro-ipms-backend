@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.searchcondition.repository.db1.SearchConditionMapper">
+
+    <insert id="insertCondition" parameterType="kr.co.mindpro.ipms.domain.searchcondition.vo.SearchConditionVO">
+        <selectKey keyProperty="conditionSeq" resultType="string" order="BEFORE">
+            /* 공통 시퀀스 채번 함수 사용 */
+            SELECT fn_get_dynamic_seq('utb_search_condition') AS conditionSeq
+        </selectKey>
+
+        INSERT INTO "MP_IPMS_PA".utb_search_condition (
+        condition_seq
+        , user_info_seq
+        , menu_code
+        , condition_name
+        , search_options
+        , date_filters
+        , text_filters
+        , use_yn
+        , del_yn
+        , create_user
+        , create_at
+        , update_user
+        , update_at
+        ) VALUES (
+        #{conditionSeq}
+        , #{userInfoSeq}
+        , #{menuCode}
+        , #{conditionName}
+        , #{searchOptions}
+        , #{dateFilters}
+        , #{textFilters}
+        , COALESCE(#{useYn}, 'Y')
+        , 'N'
+        , #{createUser}
+        , CURRENT_TIMESTAMP
+        , #{updateUser}
+        , CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <select id="selectConditionList" resultType="kr.co.mindpro.ipms.domain.searchcondition.vo.SearchConditionVO">
+        SELECT
+            condition_seq
+             , menu_code
+             , condition_name
+             , search_options  /* 추가 */
+             , date_filters    /* 추가 */
+             , text_filters    /* 추가 */
+             , use_yn
+             , create_at
+        FROM "MP_IPMS_PA".utb_search_condition
+        WHERE user_info_seq = #{userInfoSeq}
+          AND menu_code = #{menuCode}
+          AND del_yn = 'N'
+        ORDER BY create_at DESC
+    </select>
+
+    <select id="selectConditionDetail" resultType="kr.co.mindpro.ipms.domain.searchcondition.vo.SearchConditionVO">
+        SELECT
+            condition_seq,
+            menu_code,
+            condition_name,
+            search_options,
+            date_filters,
+            text_filters,
+            use_yn,
+            create_at
+        FROM "MP_IPMS_PA".utb_search_condition
+        WHERE condition_seq = #{conditionSeq}
+           AND del_yn = 'N'
+    </select>
+
+
+    <update id="deleteCondition">
+        UPDATE "MP_IPMS_PA".utb_search_condition
+        SET
+            del_yn = 'Y',
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE condition_seq = #{conditionSeq}
+            AND del_yn = 'N'
+    </update>
+
+    <select id="selectFieldList" resultType="kr.co.mindpro.ipms.domain.searchcondition.vo.SearchFieldVO">
+        SELECT
+            field_key,
+            target_table,
+            db_column,
+            search_code_column,
+            search_code_value,
+            data_type
+        FROM utb_search_field_map
+        WHERE menu_code = #{menuCode}
+    </select>
+</mapper>

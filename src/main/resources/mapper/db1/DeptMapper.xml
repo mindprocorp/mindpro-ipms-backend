@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.organization.repository.db1.DeptMapper">
+
+    <!-- 부서 트리 조회 (경로 순서로 정렬) -->
+    <select id="selectDeptTree" resultType="kr.co.mindpro.ipms.domain.organization.vo.DeptVO">
+        SELECT dept_seq, office_seq, parent_dept_seq, dept_code, dept_name,
+               dept_path, depth, sort_ord, use_yn,
+               create_user, create_at, update_user, update_at, del_yn, note
+        FROM utb_dept_mst
+        WHERE office_seq = #{officeSeq}
+          AND del_yn = 'N'
+        ORDER BY dept_path ASC, sort_ord ASC
+    </select>
+
+    <!-- 부서 단건 조회 -->
+    <select id="selectDeptBySeq" resultType="kr.co.mindpro.ipms.domain.organization.vo.DeptVO">
+        SELECT dept_seq, office_seq, parent_dept_seq, dept_code, dept_name,
+               dept_path, depth, sort_ord, use_yn,
+               create_user, create_at, update_user, update_at, del_yn, note
+        FROM utb_dept_mst
+        WHERE dept_seq = #{deptSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <!-- 부서 등록 -->
+    <insert id="insertDept" parameterType="kr.co.mindpro.ipms.domain.organization.vo.DeptVO">
+        <selectKey keyProperty="deptSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_dept_mst')
+        </selectKey>
+        INSERT INTO utb_dept_mst (
+            dept_seq, office_seq, parent_dept_seq, dept_code, dept_name,
+            dept_path, depth, sort_ord, use_yn,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{deptSeq}, #{officeSeq}, #{parentDeptSeq}, #{deptCode}, #{deptName},
+            #{deptPath}, #{depth}, #{sortOrd}, COALESCE(#{useYn}, 'Y'),
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 부서 수정 -->
+    <update id="updateDept" parameterType="kr.co.mindpro.ipms.domain.organization.vo.DeptVO">
+        UPDATE utb_dept_mst
+        <set>
+            <if test="deptName != null">dept_name = #{deptName},</if>
+            <if test="deptCode != null">dept_code = #{deptCode},</if>
+            <if test="parentDeptSeq != null">parent_dept_seq = #{parentDeptSeq},</if>
+            <if test="deptPath != null">dept_path = #{deptPath},</if>
+            <if test="depth != null">depth = #{depth},</if>
+            <if test="sortOrd != null">sort_ord = #{sortOrd},</if>
+            <if test="useYn != null">use_yn = #{useYn},</if>
+            <if test="updateUser != null">update_user = #{updateUser},</if>
+            update_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE dept_seq = #{deptSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 부서 삭제 (논리 삭제) -->
+    <update id="deleteDept">
+        UPDATE utb_dept_mst
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE dept_seq = #{deptSeq}
+    </update>
+
+    <!-- 하위 부서 useYn 일괄 변경 (재귀) -->
+    <update id="updateDescendantsUseYn">
+        WITH RECURSIVE descendants AS (
+            SELECT dept_seq FROM utb_dept_mst WHERE parent_dept_seq = #{deptSeq} AND del_yn = 'N'
+            UNION ALL
+            SELECT d.dept_seq FROM utb_dept_mst d INNER JOIN descendants p ON d.parent_dept_seq = p.dept_seq WHERE d.del_yn = 'N'
+        )
+        UPDATE utb_dept_mst
+        SET use_yn = #{useYn}, update_at = CURRENT_TIMESTAMP
+        WHERE dept_seq IN (SELECT dept_seq FROM descendants)
+    </update>
+
+    <!-- 하위 부서 경로 일괄 수정 (부서 이동 시) -->
+    <update id="updateChildPaths">
+        UPDATE utb_dept_mst
+        SET dept_path = REPLACE(dept_path, #{oldPath}, #{newPath}),
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND dept_path LIKE #{oldPath} || '%'
+          AND del_yn = 'N'
+    </update>
+
+</mapper>

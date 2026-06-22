@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : OfficeMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.registry.repository.db1.OfficeMapper">
+
+    <!-- 사용 가능한 사무소 목록 조회 -->
+    <select id="findAllActiveOffices" resultType="kr.co.mindpro.ipms.domain.registry.vo.OfficeVO">
+        SELECT
+            office_seq,
+            office_short_name,
+            office_addr,
+            office_tel,
+            office_auth_yn,
+            office_state_code,
+            office_invite_code,
+            del_yn,
+            note
+        FROM "MP_IPMS_PA".utb_office_mst
+        WHERE del_yn = 'N'
+          AND office_auth_yn = 'Y'
+        ORDER BY office_short_name ASC
+    </select>
+
+    <!-- 초대코드로 사무소 조회 -->
+    <select id="findByInviteCode" resultType="kr.co.mindpro.ipms.domain.registry.vo.OfficeVO">
+        SELECT office_seq, office_short_name, office_invite_code
+        FROM utb_office_mst
+        WHERE office_invite_code = #{inviteCode}
+          AND del_yn = 'N'
+          AND office_auth_yn = 'Y'
+    </select>
+
+    <!-- 초대코드 변경 -->
+    <update id="updateInviteCode">
+        UPDATE utb_office_mst
+        SET office_invite_code = #{inviteCode},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+</mapper>

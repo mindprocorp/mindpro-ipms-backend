@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.registry.repository.db1.CodeRegMapper">
+
+    <!-- 그룹코드 유효성 검증 -->
+    <select id="existsMasterGroup" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 
+            FROM  utb_code_mst
+            WHERE grp_cd = #{grpCd}
+              AND del_yn = 'N'
+        )
+    </select>
+
+    <!-- 상세 코드 목록 조회 -->
+    <select id="findDetailsByGroup" resultType="kr.co.mindpro.ipms.domain.registry.vo.CodeDetailVO">
+        SELECT 
+            dtl_cd     						AS dtlCd,
+            cd_nm      						AS cdNm,
+            COALESCE(ref_val_1, ref_val_2)   AS refVal
+        FROM  utb_code_dtl
+        WHERE grp_cd = #{grpCd}
+          AND del_yn = 'N'
+        ORDER BY disp_ord ASC, dtl_cd ASC
+    </select>
+
+</mapper>

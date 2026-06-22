@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.file.repository.db1.FileMapper">
+
+    <!-- 1. 파일 마스터 정보 등록 (최신 스키마 반영) -->
+    <insert id="insertFileMaster" parameterType="kr.co.mindpro.ipms.domain.file.vo.FileMstVO">
+        INSERT INTO utb_file_mst (
+            file_seq,
+            file_repository_seq,
+
+            file_nm,
+            file_original_nm,
+            file_size,
+            file_display_size,
+            create_user,
+            create_at,
+            update_user,
+            update_at,
+            del_yn
+        ) VALUES (
+            #{fileSeq},
+            #{fileRepositorySeq},
+
+            #{fileNm},
+            #{fileOriginalNm},
+            #{fileSize},
+            #{fileDisplaySize},
+            #{createUser},
+            CURRENT_TIMESTAMP,
+            #{createUser},
+            CURRENT_TIMESTAMP,
+            COALESCE(#{delYn}, 'N')
+        )
+    </insert>    
+
+    <!-- 2. 파일 논리 삭제 처리 (Soft Delete) -->
+    <update id="updateDeleteYn">
+        UPDATE utb_file_mst
+           SET del_yn = 'Y',
+               update_user = #{userId},
+               update_at = CURRENT_TIMESTAMP
+         WHERE file_seq = #{fileSeq}
+           AND del_yn = 'N'
+    </update>
+    
+    <!-- 3. 저장소 시퀀스 조회 -->
+    <select id="selectRepositorySeqByKind" parameterType="string" resultType="string">
+        SELECT file_repository_seq
+          FROM utb_file_repository
+         WHERE repository_kind = #{repositoryKind}
+           AND del_yn = 'N'
+         ORDER BY create_at DESC
+         LIMIT 1
+    </select>
+    
+    <!-- 서류 마스터 정보 조회 -->
+	<select id="selectDocumentMstById" parameterType="long" resultType="kr.co.mindpro.ipms.domain.file.vo.DocumentMstVO">
+	    SELECT 
+	        doc_seq        AS docSeq,
+	        doc_div        AS docDiv,
+	        entry_type     AS entryType,
+	        doc_nm         AS docNm,
+	        pat_type       AS patType,
+	        del_yn         AS delYn
+	    FROM utb_document_mst
+	    WHERE doc_seq = #{docSeq}
+	      AND del_yn = 'N' -- 삭제되지 않은 서류만 조회
+	</select>
+
+    <!-- 여러 파일 시퀀스로 파일 정보 조회 -->
+    <select id="selectFilesBySeqs" resultType="kr.co.mindpro.ipms.domain.file.vo.FileMstVO">
+        SELECT 
+            M.file_seq AS fileSeq,
+            M.file_original_nm AS fileOriginalNm,
+            CONCAT(R.repository_url, '/', M.file_nm) AS fileUrl
+        FROM utb_file_mst M
+        LEFT JOIN utb_file_repository R ON M.file_repository_seq = R.file_repository_seq AND R.del_yn = 'N'
+        WHERE M.file_seq IN
+        <foreach collection="fileSeqs" item="seq" open="(" separator="," close=")">
+            #{seq}
+        </foreach>
+          AND M.del_yn = 'N'
+    </select>
+
+</mapper>
+

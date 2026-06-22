@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.approval.repository.db1.ApprDocMapper">
+
+    <!-- ── 공통 컬럼 프래그먼트 ── -->
+    <sql id="docBaseColumns">
+        D.doc_seq          AS "docSeq",
+        D.office_seq       AS "officeSeq",
+        D.form_template_seq AS "formTemplateSeq",
+        FT.template_name   AS "formTemplateName",
+        D.doc_no           AS "docNo",
+        D.doc_title        AS "docTitle",
+        D.doc_status       AS "docStatus",
+        D.drafter_seq      AS "drafterSeq",
+        UI.user_name_ko    AS "drafterName",
+        D.draft_dept_seq   AS "draftDeptSeq",
+        DP.dept_name       AS "draftDeptName",
+        D.submit_at        AS "submitAt",
+        D.complete_at      AS "completeAt",
+        D.create_user      AS "createUser",
+        D.create_at        AS "createAt",
+        D.update_user      AS "updateUser",
+        D.update_at        AS "updateAt"
+    </sql>
+
+    <sql id="docBaseJoins">
+        LEFT JOIN utb_form_template FT ON D.form_template_seq = FT.form_template_seq AND FT.del_yn = 'N'
+        LEFT JOIN utb_user_info UI ON D.drafter_seq = UI.user_mst_seq AND UI.del_yn = 'N'
+        LEFT JOIN utb_dept_mst DP ON D.draft_dept_seq = DP.dept_seq AND DP.del_yn = 'N'
+    </sql>
+
+    <!-- ── 단건 조회 (docContent + templateData 포함) ── -->
+    <select id="selectDocBySeq" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        SELECT
+            <include refid="docBaseColumns" />,
+            D.doc_content    AS "docContent",
+            FT.template_data AS "templateData"
+        FROM utb_appr_doc D
+        <include refid="docBaseJoins" />
+        WHERE D.doc_seq = #{docSeq}
+          AND D.del_yn = 'N'
+    </select>
+
+    <!-- ── 내 기안함 ── -->
+    <select id="selectMyDraftList" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        SELECT <include refid="docBaseColumns" />
+        FROM utb_appr_doc D
+        <include refid="docBaseJoins" />
+        WHERE D.drafter_seq = #{drafterSeq}
+          AND D.del_yn = 'N'
+        <if test="docStatus != null and docStatus != ''">
+          AND D.doc_status = #{docStatus}
+        </if>
+        <if test="keyword != null and keyword != ''">
+          AND (D.doc_title ILIKE '%' || #{keyword} || '%'
+            OR D.doc_no ILIKE '%' || #{keyword} || '%')
+        </if>
+        ORDER BY D.create_at DESC
+    </select>
+
+    <!-- ── 결재 대기함 (내 차례인 문서) ── -->
+    <select id="selectPendingList" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        WITH current_steps AS (
+            SELECT L.doc_seq, MIN(CAST(L.step_order AS INT)) AS current_step
+            FROM utb_appr_doc_line L
+            WHERE L.del_yn = 'N'
+              AND L.line_status = 'PENDING'
+            GROUP BY L.doc_seq
+        )
+        SELECT DISTINCT <include refid="docBaseColumns" />
+        FROM utb_appr_doc D
+        <include refid="docBaseJoins" />
+        JOIN current_steps CS ON D.doc_seq = CS.doc_seq
+        JOIN utb_appr_doc_line L
+            ON D.doc_seq = L.doc_seq
+           AND CAST(L.step_order AS INT) = CS.current_step
+           AND L.approver_seq = #{approverSeq}
+           AND L.line_status = 'PENDING'
+           AND L.del_yn = 'N'
+        WHERE D.doc_status = 'PENDING'
+          AND D.del_yn = 'N'
+        <if test="keyword != null and keyword != ''">
+          AND (D.doc_title ILIKE '%' || #{keyword} || '%'
+            OR D.doc_no ILIKE '%' || #{keyword} || '%')
+        </if>
+        ORDER BY D.submit_at DESC
+    </select>
+
+    <!-- ── 결재 참조/열람 (개인 SHARE 대상 + 서식 전체 공유) ── -->
+    <select id="selectReferenceList" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        SELECT DISTINCT <include refid="docBaseColumns" />
+        FROM utb_appr_doc D
+        <include refid="docBaseJoins" />
+        WHERE D.del_yn = 'N'
+          AND D.doc_status IN ('PENDING', 'APPROVED', 'REJECTED')
+          AND (
+              EXISTS (
+                  SELECT 1 FROM utb_appr_doc_target TG
+                  WHERE TG.doc_seq = D.doc_seq
+                    AND TG.target_role = 'SHARE'
+                    AND TG.target_type = 'EMPLOYEE'
+                    AND TG.ref_seq = #{userMstSeq}
+                    AND TG.del_yn = 'N'
+              )
+              OR (FT.share_scope = 'ALL' AND D.office_seq = #{officeSeq})
+          )
+        <if test="keyword != null and keyword != ''">
+          AND (D.doc_title ILIKE '%' || #{keyword} || '%'
+            OR D.doc_no ILIKE '%' || #{keyword} || '%')
+        </if>
+        ORDER BY D.submit_at DESC
+    </select>
+
+    <!-- ── 부서 수신함 ── -->
+    <select id="selectDeptInboxList" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        SELECT DISTINCT <include refid="docBaseColumns" />
+        FROM utb_appr_doc D
+        <include refid="docBaseJoins" />
+        JOIN utb_appr_doc_target TG
+            ON D.doc_seq = TG.doc_seq
+           AND TG.target_role = 'RECEIVE'
+           AND TG.target_type = 'DEPT'
+           AND TG.del_yn = 'N'
+        JOIN utb_office_employee OE
+            ON TG.ref_seq = OE.dept_seq
+           AND OE.user_mst_seq = #{userMstSeq}
+           AND OE.del_yn = 'N'
+        WHERE D.del_yn = 'N'
+          AND D.doc_status = 'APPROVED'
+        <if test="keyword != null and keyword != ''">
+          AND (D.doc_title ILIKE '%' || #{keyword} || '%'
+            OR D.doc_no ILIKE '%' || #{keyword} || '%')
+        </if>
+        ORDER BY D.complete_at DESC
+    </select>
+
+    <!-- ── 부서 참조/열람 (부서 SHARE 대상 + 서식 전체 공유) ── -->
+    <select id="selectDeptReferenceList" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        SELECT DISTINCT <include refid="docBaseColumns" />
+        FROM utb_appr_doc D
+        <include refid="docBaseJoins" />
+        WHERE D.del_yn = 'N'
+          AND D.doc_status IN ('PENDING', 'APPROVED', 'REJECTED')
+          AND (
+              EXISTS (
+                  SELECT 1 FROM utb_appr_doc_target TG
+                  JOIN utb_office_employee OE
+                      ON TG.ref_seq = OE.dept_seq AND OE.del_yn = 'N'
+                  WHERE TG.doc_seq = D.doc_seq
+                    AND TG.target_role = 'SHARE'
+                    AND TG.target_type = 'DEPT'
+                    AND OE.user_mst_seq = #{userMstSeq}
+                    AND TG.del_yn = 'N'
+              )
+              OR (FT.share_scope = 'ALL' AND D.office_seq = #{officeSeq})
+          )
+        <if test="keyword != null and keyword != ''">
+          AND (D.doc_title ILIKE '%' || #{keyword} || '%'
+            OR D.doc_no ILIKE '%' || #{keyword} || '%')
+        </if>
+        ORDER BY D.submit_at DESC
+    </select>
+
+    <!-- ── 문서 수신함 (개인 RECEIVE 대상) ── -->
+    <select id="selectInboxList" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        SELECT DISTINCT <include refid="docBaseColumns" />
+        FROM utb_appr_doc D
+        <include refid="docBaseJoins" />
+        JOIN utb_appr_doc_target TG
+            ON D.doc_seq = TG.doc_seq
+           AND TG.target_role = 'RECEIVE'
+           AND TG.target_type = 'EMPLOYEE'
+           AND TG.ref_seq = #{userMstSeq}
+           AND TG.del_yn = 'N'
+        WHERE D.del_yn = 'N'
+          AND D.doc_status = 'APPROVED'
+        <if test="keyword != null and keyword != ''">
+          AND (D.doc_title ILIKE '%' || #{keyword} || '%'
+            OR D.doc_no ILIKE '%' || #{keyword} || '%')
+        </if>
+        ORDER BY D.complete_at DESC
+    </select>
+
+    <!-- ── 기안 문서 등록 ── -->
+    <insert id="insertDoc" parameterType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        <selectKey keyProperty="docSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_appr_doc')
+        </selectKey>
+        INSERT INTO utb_appr_doc (
+            doc_seq, office_seq, form_template_seq, doc_no, doc_title, doc_content,
+            doc_status, drafter_seq, draft_dept_seq,
+            submit_at, create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{docSeq}, #{officeSeq}, #{formTemplateSeq}, #{docNo}, #{docTitle}, #{docContent},
+            #{docStatus}, #{drafterSeq},
+            COALESCE(#{draftDeptSeq},
+                (SELECT dept_seq FROM utb_office_employee
+                 WHERE user_mst_seq = #{drafterSeq} AND del_yn = 'N' LIMIT 1)),
+            #{submitAt}, #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- ── 기안 문서 수정 (null 필드는 기존 값 유지) ── -->
+    <update id="updateDoc" parameterType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocVO">
+        UPDATE utb_appr_doc
+        <set>
+            <if test="docTitle != null">doc_title   = #{docTitle},</if>
+            <if test="docContent != null">doc_content = #{docContent},</if>
+            <if test="docStatus != null">doc_status  = #{docStatus},</if>
+            <if test="submitAt != null">submit_at   = #{submitAt},</if>
+            <if test="completeAt != null">complete_at  = #{completeAt},</if>
+            update_user = #{updateUser},
+            update_at   = CURRENT_TIMESTAMP
+        </set>
+        WHERE doc_seq = #{docSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- ── 기안 문서 삭제 (논리) ── -->
+    <update id="deleteDoc">
+        UPDATE utb_appr_doc
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE doc_seq = #{docSeq}
+    </update>
+
+    <!-- ── 결재선 등록 ── -->
+    <insert id="insertDocLine" parameterType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocLineVO">
+        <selectKey keyProperty="lineSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_appr_doc_line')
+        </selectKey>
+        INSERT INTO utb_appr_doc_line (
+            line_seq, doc_seq, step_order, step_name, step_type,
+            approver_seq, approver_name, approver_type,
+            line_status, create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{lineSeq}, #{docSeq}, #{stepOrder}, #{stepName}, #{stepType},
+            #{approverSeq}, #{approverName}, #{approverType},
+            'PENDING', #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- ── 결재선 전체 삭제 ── -->
+    <update id="deleteDocLines">
+        UPDATE utb_appr_doc_line
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE doc_seq = #{docSeq}
+    </update>
+
+    <!-- ── 결재선 목록 조회 ── -->
+    <select id="selectDocLines" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocLineVO">
+        SELECT L.line_seq       AS "lineSeq",
+               L.doc_seq        AS "docSeq",
+               L.step_order     AS "stepOrder",
+               L.step_name      AS "stepName",
+               L.step_type      AS "stepType",
+               L.approver_seq   AS "approverSeq",
+               COALESCE(L.approver_name, UI.user_name_ko) AS "approverName",
+               L.approver_type  AS "approverType",
+               L.line_status    AS "lineStatus",
+               L.action_at      AS "actionAt",
+               L.action_comment AS "actionComment"
+        FROM utb_appr_doc_line L
+        LEFT JOIN utb_user_info UI ON L.approver_seq = UI.user_mst_seq AND UI.del_yn = 'N'
+        WHERE L.doc_seq = #{docSeq}
+          AND L.del_yn = 'N'
+        ORDER BY CAST(L.step_order AS INT) ASC
+    </select>
+
+    <!-- ── 결재선 단계 상태 수정 ── -->
+    <update id="updateDocLine" parameterType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocLineVO">
+        UPDATE utb_appr_doc_line
+        SET line_status    = #{lineStatus},
+            action_at      = CURRENT_TIMESTAMP,
+            action_comment = #{actionComment},
+            update_user    = #{updateUser},
+            update_at      = CURRENT_TIMESTAMP
+        WHERE line_seq = #{lineSeq}
+    </update>
+
+    <!-- ── 수신/공유 대상 등록 ── -->
+    <insert id="insertDocTarget" parameterType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocTargetVO">
+        <selectKey keyProperty="targetSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_appr_doc_target')
+        </selectKey>
+        INSERT INTO utb_appr_doc_target (
+            target_seq, doc_seq, target_role, target_type, ref_seq,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{targetSeq}, #{docSeq}, #{targetRole}, #{targetType}, #{refSeq},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- ── 수신/공유 대상 전체 삭제 ── -->
+    <update id="deleteDocTargets">
+        UPDATE utb_appr_doc_target
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE doc_seq = #{docSeq}
+    </update>
+
+    <!-- ── 수신/공유 대상 목록 조회 ── -->
+    <select id="selectDocTargets" resultType="kr.co.mindpro.ipms.domain.approval.vo.ApprDocTargetVO">
+        SELECT T.target_seq  AS "targetSeq",
+               T.doc_seq     AS "docSeq",
+               T.target_role AS "targetRole",
+               T.target_type AS "targetType",
+               T.ref_seq     AS "refSeq",
+               COALESCE(UI.user_name_ko, DP.dept_name) AS "refName"
+        FROM utb_appr_doc_target T
+        LEFT JOIN utb_user_info UI
+               ON T.target_type = 'EMPLOYEE'
+              AND (T.ref_seq = UI.user_mst_seq OR T.ref_seq = UI.user_info_seq)
+              AND UI.del_yn = 'N'
+        LEFT JOIN utb_dept_mst DP
+               ON T.target_type = 'DEPT'
+              AND T.ref_seq = DP.dept_seq
+              AND DP.del_yn = 'N'
+        WHERE T.doc_seq = #{docSeq}
+          AND T.del_yn = 'N'
+    </select>
+
+</mapper>

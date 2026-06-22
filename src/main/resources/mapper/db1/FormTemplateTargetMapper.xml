@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.organization.repository.db1.FormTemplateTargetMapper">
+
+    <!-- 대상 목록 조회 -->
+    <select id="selectTargetsByTemplateSeq" resultType="kr.co.mindpro.ipms.domain.organization.vo.FormTemplateTargetVO">
+        SELECT T.target_seq AS "targetSeq",
+               T.form_template_seq AS "formTemplateSeq",
+               T.target_role AS "targetRole",
+               T.target_type AS "targetType",
+               T.ref_seq AS "refSeq",
+               T.create_user AS "createUser",
+               T.create_at AS "createAt",
+               T.update_user AS "updateUser",
+               T.update_at AS "updateAt",
+               T.del_yn AS "delYn",
+               T.note,
+               COALESCE(I.user_name_ko, D.dept_name) AS "refName",
+               COALESCE(E.office_employee_dept, D.dept_name) AS "refDept",
+               E.office_employee_position AS "refPosition",
+               I.user_email AS "refEmail",
+               I.user_mobile_no AS "refMobile"
+        FROM utb_form_template_target T
+        LEFT JOIN utb_user_info I
+               ON T.target_type = 'EMPLOYEE'
+              AND (T.ref_seq = I.user_mst_seq OR T.ref_seq = I.user_info_seq)
+              AND I.del_yn = 'N'
+        LEFT JOIN utb_office_employee E
+               ON T.target_type = 'EMPLOYEE'
+              AND (T.ref_seq = E.user_mst_seq OR T.ref_seq = E.office_employee_seq)
+              AND E.del_yn = 'N'
+        LEFT JOIN utb_dept_mst D
+               ON T.target_type = 'DEPT'
+              AND T.ref_seq = D.dept_seq
+              AND D.del_yn = 'N'
+        WHERE T.form_template_seq = #{formTemplateSeq}
+          AND T.del_yn = 'N'
+    </select>
+
+    <!-- 대상 등록 -->
+    <insert id="insertTarget" parameterType="kr.co.mindpro.ipms.domain.organization.vo.FormTemplateTargetVO">
+        <selectKey keyProperty="targetSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_form_template_target')
+        </selectKey>
+        INSERT INTO utb_form_template_target (
+            target_seq, form_template_seq, target_role, target_type, ref_seq,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{targetSeq}, #{formTemplateSeq}, #{targetRole}, #{targetType}, #{refSeq},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 대상 전체 논리 삭제 (수정 시 기존 삭제 후 재등록) -->
+    <update id="deleteTargetsByTemplateSeq">
+        UPDATE utb_form_template_target
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE form_template_seq = #{formTemplateSeq}
+    </update>
+
+</mapper>

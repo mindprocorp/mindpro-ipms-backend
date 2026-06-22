@@ -1,0 +1,137 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.maintenanceFee.repository.db1.MaintenanceFeeMapper">
+
+    <insert id="insertMaintenanceFee" parameterType="kr.co.mindpro.ipms.domain.maintenanceFee.dto.request.MaintenanceFeeRequest$CreateMaintenanceFeeRequest">
+        <selectKey keyProperty="maintenanceFeeSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_maintenance_fee')
+        </selectKey>
+
+        INSERT INTO utb_maintenance_fee (
+            maintenance_fee_seq
+            , office_seq
+            , app_seq
+            , next_payment_installment
+            , create_user
+            , create_at
+            , del_yn
+            , note
+        ) VALUES (
+            #{maintenanceFeeSeq}
+            , #{officeSeq}
+            , #{appSeq}
+            , #{nextPaymentInstallment}
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , 'N'
+            , #{note}
+        )
+    </insert>
+
+    <select id="getDuplicateMaintenanceCnt" resultType="int">
+        SELECT COUNT(*)
+        FROM utb_maintenance_fee
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND maintenance_fee_seq = #{maintenanceFeeSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="getMaintenanceFee" resultType="kr.co.mindpro.ipms.domain.maintenanceFee.vo.MaintenanceFeeVO">
+        SELECT
+            umf.maintenance_fee_seq
+            , umf.next_payment_installment
+            , umf.note
+            , umf.app_seq
+            , vtdp."maintFeeDeadline"
+            , vtdp."maintFeePenaltyDeadline"
+            , vtdp."maintFeeOrderDate"
+            , vtdp."maintFeePaymentDate"
+        FROM utb_maintenance_fee umf
+        LEFT JOIN v_total_duedate_pivot vtdp ON umf.maintenance_fee_seq = vtdp.tbl_seq
+        WHERE umf.maintenance_fee_seq = #{maintenanceFeeSeq}
+          AND umf.office_seq = #{officeSeq}
+          AND umf.app_seq = #{appSeq}
+          AND umf.del_yn = 'N'
+    </select>
+
+    <select id="getMaintenanceFeeCnt" resultType="int">
+        SELECT
+            COUNT(*)
+        FROM utb_maintenance_fee
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="getMaintenanceFeeList">
+        SELECT
+            umf.maintenance_fee_seq
+             , umf.next_payment_installment
+             , umf.note
+             , vtdp."maintFeeDeadline"
+             , vtdp."maintFeePenaltyDeadline"
+             , vtdp."maintFeeOrderDate"
+             , vtdp."maintFeePaymentDate"
+        FROM utb_maintenance_fee umf
+        LEFT JOIN v_total_duedate_pivot vtdp ON umf.maintenance_fee_seq = vtdp.tbl_seq
+        WHERE umf.office_seq = #{officeSeq}
+          AND umf.app_seq = #{appSeq}
+          AND umf.del_yn = 'N'
+    </select>
+
+    <update id="updateMaintenanceFee" parameterType="kr.co.mindpro.ipms.domain.maintenanceFee.vo.MaintenanceFeeVO">
+        UPDATE utb_maintenance_fee
+        SET
+            next_payment_installment = #{nextPaymentInstallment}
+            , note = #{note}
+            , update_user = #{updateUser}
+            , update_at = CURRENT_TIMESTAMP
+        WHERE maintenance_fee_seq = #{maintenanceFeeSeq}
+          AND office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <delete id="softDeleteMaintenanceFee">
+        UPDATE utb_maintenance_fee
+        SET del_yn = 'Y'
+          , update_user = #{userSeq}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND maintenance_fee_seq = #{maintenanceFeeSeq}
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="softDeleteMaintenanceFeeByList">
+        UPDATE utb_maintenance_fee
+        SET del_yn = 'Y'
+          , update_user = #{userSeq}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND maintenance_fee_seq IN
+          <foreach collection="maintenanceFeeSeqList" item="maintenanceFeeSeq" open="(" separator="," close=")">
+              #{maintenanceFeeSeq}
+          </foreach>
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="hardDeleteMaintenanceFee">
+        DELETE FROM utb_maintenance_fee
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND maintenance_fee_seq = #{maintenanceFeeSeq}
+    </delete>
+
+    <delete id="hardDeleteMaintenanceFeeByList">
+        DELETE FROM utb_maintenance_fee
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND maintenance_fee_seq IN
+        <foreach collection="maintenanceFeeSeqList" item="maintenanceFeeSeq" open="(" separator="," close=")">
+            #{maintenanceFeeSeq}
+        </foreach>
+    </delete>
+</mapper>

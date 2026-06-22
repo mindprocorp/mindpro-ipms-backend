@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.incident.repository.db1.IncidentMapper">
+
+    <select id="selectClaimsByTblSeq" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceMergeVO">
+        SELECT im.invoice_seq AS invoiceSeq
+             , im.office_seq AS officeSeq
+             , im.app_seq AS appSeq
+             , im.invoice_category_code AS invCategoryCode
+             , fn_get_cd_nm('BILL_DIV_CD', im.invoice_category_code) AS invCategoryName
+             , im.invoice_content AS invContent
+             , im.invoice_no AS invNo
+             , to_char(im.create_at, 'YYYYMMDD') AS invDate
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'govFee') AS govFee
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'agencyFee') AS agencyFee
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'vat') AS vat
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'etcFee') AS etcFee
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'transFee') AS transFee
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'totalInvAmount') AS totalInvAmount
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'depAmount') AS depAmount
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'unpaidAmount') AS unpaidAmount
+             , fn_get_cost_amount(im.office_seq, im.invoice_seq, 'abandonAmount') AS abandonAmount
+             , im.create_at AS createAt
+             , im.in_out_type AS inOutType
+        FROM utb_invoice_mst im
+        WHERE im.app_seq = #{tblSeq}
+          AND im.office_seq = #{officeSeq}
+          AND im.del_yn = 'N'
+        ORDER BY im.create_at DESC
+    </select>
+
+    <update id="updateInvoiceDeleteYn">
+        UPDATE utb_invoice_mst
+        SET del_yn = 'Y',
+            update_user = #{loginUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND invoice_seq IN
+          <foreach item="item" index="index" collection="invoiceSeqs" open="(" separator="," close=")">
+              #{item}
+          </foreach>
+    </update>
+
+    <update id="updateClaimDeleteYnByInvoice">
+        UPDATE utb_invoice_claim
+        SET del_yn = 'Y',
+            update_user = #{loginUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND invoice_seq IN
+          <foreach item="item" index="index" collection="invoiceSeqs" open="(" separator="," close=")">
+              #{item}
+          </foreach>
+    </update>
+
+    <delete id="deleteInvoiceMstHard">
+        DELETE FROM utb_invoice_mst
+        WHERE office_seq = #{officeSeq}
+          AND invoice_seq IN
+          <foreach item="item" index="index" collection="invoiceSeqs" open="(" separator="," close=")">
+              #{item}
+          </foreach>
+    </delete>
+
+    <delete id="deleteInvoiceClaimHard">
+        DELETE FROM utb_invoice_claim
+        WHERE office_seq = #{officeSeq}
+          AND invoice_seq IN
+          <foreach item="item" index="index" collection="invoiceSeqs" open="(" separator="," close=")">
+              #{item}
+          </foreach>
+    </delete>
+
+</mapper>

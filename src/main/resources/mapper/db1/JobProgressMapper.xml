@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : InvoiceMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.jobprogress.repository.db1.JobProgressMapper">
+
+    <insert id="insertProgress" parameterType="kr.co.mindpro.ipms.domain.jobprogress.vo.JobProgressVO">
+        <selectKey keyProperty="progressSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_progress')
+        </selectKey>
+
+        INSERT INTO utb_progress (
+        office_seq,
+        progress_seq,
+        tbl_code,
+        tbl_seq,
+        dept_name,
+        target_code,
+        progress_state,
+        receipt_doc_name,
+        receipt_doc_seq,
+        receipt_doc_content,
+        submit_doc_name,
+        submit_doc_seq,
+        instruction_content,
+        extension_count,
+        note,
+        create_user,
+        create_at,
+        del_yn
+        ) VALUES (
+        #{officeSeq},
+        #{progressSeq},
+        #{tblCode},
+        #{tblSeq},
+        #{deptName},
+        #{targetCode},
+        #{progressState},
+        #{receiptDocName},
+        #{receiptDocSeq},
+        #{receiptDocContent},
+        #{submitDocName},
+        #{submitDocSeq},
+        #{instructionContent},
+        #{extensionCount},
+        #{note},
+        #{createUser},
+        CURRENT_TIMESTAMP,
+        'N'
+        )
+    </insert>
+    <select id="findProgressDetail" resultType="kr.co.mindpro.ipms.domain.jobprogress.vo.JobProgressMergeVO">
+        SELECT
+            p.office_seq,
+            p.progress_seq,
+            p.tbl_seq,
+            p.target_code,
+            fn_get_cd_nm('TARGET_TYPE', p.target_code) AS targetCodeName,
+            p.dept_name,
+            p.progress_state,
+            p.receipt_doc_seq,
+            fn_get_cd_nm('DOC_TYPE', p.receipt_doc_seq) AS receiptDocName, p.receipt_doc_content,
+            p.submit_doc_seq,
+            fn_get_cd_nm('DOC_TYPE', p.submit_doc_seq) AS submitDocName,
+            p.instruction_content,
+            p.extension_count,
+            p.note,
+
+            /* 기일 정보 (Pivot View) */
+            to_char(due."noticeDate", 'YYYYMMDD')            AS noticeDate,
+            to_char(due."agentReceiptDate", 'YYYYMMDD')      AS agentReceiptDate,
+            to_char(due."receiptReportLimitDate", 'YYYYMMDD') AS receiptReportLimitDate,
+            to_char(due."receiptReportDate", 'YYYYMMDD')      AS receiptReportDate,
+            to_char(due."reviewOpinionLimitDate", 'YYYYMMDD') AS reviewOpinionLimitDate,
+            to_char(due."reviewReportDate", 'YYYYMMDD')      AS reviewReportDate,
+            to_char(due."instructionDate", 'YYYYMMDD')       AS instructionDate,
+            to_char(due."documentLimitDate", 'YYYYMMDD')     AS documentLimitDate,
+            to_char(due."documentSubmitDate", 'YYYYMMDD')    AS documentSubmitDate,
+            to_char(due."submitReportLimitDate", 'YYYYMMDD') AS submitReportLimitDate,
+            to_char(due."submitReportDate", 'YYYYMMDD')      AS submitReportDate,
+
+            /* 관계자 정보 (Pivot View) */
+            pp."examiner"               AS examiner,
+            pp."examiner_NM"            AS examinerName,
+            pp."receiptReportManager"   AS receiptReportManager,
+            pp."receiptReportManager_NM" AS receiptReportManagerName,
+            pp."reviewReportManager"    AS reviewReportManager,
+            pp."reviewReportManager_NM"  AS reviewReportManagerName,
+            pp."submitManager"          AS submitManager,
+            pp."submitManager_NM"       AS submitManagerName,
+            pp."submitReportManager"    AS submitReportManager,
+            pp."submitReportManager_NM"  AS submitReportManagerName
+
+        FROM utb_progress p
+                 LEFT OUTER JOIN v_total_duedate_pivot due ON p.progress_seq = due.tbl_seq AND p.office_seq = due.office_seq
+                 LEFT OUTER JOIN v_participant_pivot pp ON p.progress_seq = pp.tbl_seq AND p.office_seq = pp.office_seq
+        WHERE p.progress_seq = #{progressSeq}
+          AND p.office_seq = #{officeSeq}
+          AND p.del_yn = 'N'
+    </select>
+
+
+
+    <select id="findProgressList" resultType="kr.co.mindpro.ipms.domain.jobprogress.vo.JobProgressMergeVO">
+        SELECT * FROM (
+            SELECT
+            p.office_seq AS "officeSeq",
+            p.progress_seq AS "progressSeq",
+            p.tbl_seq AS "tblSeq",
+            p.target_code AS "targetCode",
+            fn_get_cd_nm('TARGET_TYPE', p.target_code) AS "targetCodeName",
+            p.dept_name AS "deptName",
+            p.progress_state AS "progressState",
+            p.receipt_doc_seq AS "receiptDocSeq", /* 기존 매핑 유지 */
+            p.receipt_doc_seq AS "receiptDocCode", /* 검색용 추가 */
+            fn_get_doc_nm(p.receipt_doc_seq) AS "receiptDocName",
+            p.receipt_doc_content AS "receiptDocContent",
+            p.submit_doc_seq AS "submitDocSeq", /* 기존 매핑 유지 */
+            p.submit_doc_seq AS "submitDocCode", /* 검색용 추가 */
+            fn_get_doc_nm(p.submit_doc_seq) AS "submitDocName",
+            p.instruction_content AS "instructionContent",
+            p.extension_count AS "extensionCount",
+            p.note AS "note",
+            p.create_at AS "createAt", /* 정렬용 */
+
+            to_char(due."noticeDate", 'YYYYMMDD')            AS "noticeDate",
+            to_char(due."agentReceiptDate", 'YYYYMMDD')      AS "agentReceiptDate",
+            to_char(due."receiptReportLimitDate", 'YYYYMMDD') AS "receiptReportLimitDate",
+            to_char(due."receiptReportDate", 'YYYYMMDD')      AS "receiptReportDate",
+            to_char(due."reviewOpinionLimitDate", 'YYYYMMDD') AS "reviewOpinionLimitDate",
+            to_char(due."reviewReportDate", 'YYYYMMDD')      AS "reviewReportDate",
+            to_char(due."instructionDate", 'YYYYMMDD')       AS "instructionDate",
+            to_char(due."documentLimitDate", 'YYYYMMDD')     AS "documentLimitDate",
+            to_char(due."documentSubmitDate", 'YYYYMMDD')    AS "documentSubmitDate",
+            to_char(due."submitReportLimitDate", 'YYYYMMDD') AS "submitReportLimitDate",
+            to_char(due."submitReportDate", 'YYYYMMDD')      AS "submitReportDate",
+
+            pp."examiner"               AS "examiner",
+            pp."examiner_NM"            AS "examinerName",
+            pp."receiptReportManager"   AS "receiptReportManager",
+            pp."receiptReportManager_NM" AS "receiptReportManagerName",
+            pp."reviewReportManager"    AS "reviewReportManager",
+            pp."reviewReportManager_NM"  AS "reviewReportManagerName",
+            pp."submitManager"          AS "submitManager",
+            pp."submitManager_NM"       AS "submitManagerName",
+            pp."submitReportManager"    AS "submitReportManager",
+            pp."submitReportManager_NM"  AS "submitReportManagerName"
+
+            FROM utb_progress p
+            LEFT OUTER JOIN v_total_duedate_pivot due ON p.progress_seq = due.tbl_seq AND p.office_seq = due.office_seq
+            LEFT OUTER JOIN v_participant_pivot pp ON p.progress_seq = pp.tbl_seq AND p.office_seq = pp.office_seq
+            WHERE p.office_seq = #{request.officeSeq}
+            AND p.del_yn = 'N'
+            <if test="request.tblSeq != null and request.tblSeq != ''">
+                AND p.tbl_seq = #{request.tblSeq}
+            </if>
+        ) Z
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+        ORDER BY Z."createAt" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="totalCount" resultType="int">
+        SELECT COUNT(*) FROM (
+            SELECT
+            p.office_seq AS "officeSeq",
+            p.progress_seq AS "progressSeq",
+            p.tbl_seq AS "tblSeq",
+            p.target_code AS "targetCode",
+            fn_get_cd_nm('TARGET_TYPE', p.target_code) AS "targetCodeName",
+            p.dept_name AS "deptName",
+            p.progress_state AS "progressState",
+            p.receipt_doc_seq AS "receiptDocSeq",
+            p.receipt_doc_seq AS "receiptDocCode",
+            fn_get_doc_nm(p.receipt_doc_seq) AS "receiptDocName",
+            p.receipt_doc_content AS "receiptDocContent",
+            p.submit_doc_seq AS "submitDocSeq",
+            p.submit_doc_seq AS "submitDocCode",
+            fn_get_doc_nm(p.submit_doc_seq) AS "submitDocName",
+            p.instruction_content AS "instructionContent",
+            p.extension_count AS "extensionCount",
+            p.note AS "note",
+
+            to_char(due."noticeDate", 'YYYYMMDD')            AS "noticeDate",
+            to_char(due."agentReceiptDate", 'YYYYMMDD')      AS "agentReceiptDate",
+            to_char(due."receiptReportLimitDate", 'YYYYMMDD') AS "receiptReportLimitDate",
+            to_char(due."receiptReportDate", 'YYYYMMDD')      AS "receiptReportDate",
+            to_char(due."reviewOpinionLimitDate", 'YYYYMMDD') AS "reviewOpinionLimitDate",
+            to_char(due."reviewReportDate", 'YYYYMMDD')      AS "reviewReportDate",
+            to_char(due."instructionDate", 'YYYYMMDD')       AS "instructionDate",
+            to_char(due."documentLimitDate", 'YYYYMMDD')     AS "documentLimitDate",
+            to_char(due."documentSubmitDate", 'YYYYMMDD')    AS "documentSubmitDate",
+            to_char(due."submitReportLimitDate", 'YYYYMMDD') AS "submitReportLimitDate",
+            to_char(due."submitReportDate", 'YYYYMMDD')      AS "submitReportDate",
+
+            pp."examiner"               AS "examiner",
+            pp."examiner_NM"            AS "examinerName",
+            pp."receiptReportManager"   AS "receiptReportManager",
+            pp."receiptReportManager_NM" AS "receiptReportManagerName",
+            pp."reviewReportManager"    AS "reviewReportManager",
+            pp."reviewReportManager_NM"  AS "reviewReportManagerName",
+            pp."submitManager"          AS "submitManager",
+            pp."submitManager_NM"       AS "submitManagerName",
+            pp."submitReportManager"    AS "submitReportManager",
+            pp."submitReportManager_NM"  AS "submitReportManagerName"
+
+            FROM utb_progress p
+            LEFT OUTER JOIN v_total_duedate_pivot due ON p.progress_seq = due.tbl_seq AND p.office_seq = due.office_seq
+            LEFT OUTER JOIN v_participant_pivot pp ON p.progress_seq = pp.tbl_seq AND p.office_seq = pp.office_seq
+            WHERE p.office_seq = #{request.officeSeq}
+            AND p.del_yn = 'N'
+            <if test="request.tblSeq != null and request.tblSeq != ''">
+                AND p.tbl_seq = #{request.tblSeq}
+            </if>
+        ) Z
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+    </select>
+
+    <select id="getDuplicateProgressCnt">
+        SELECT
+            COUNT(*)
+        FROM utb_progress
+        WHERE progress_seq = #{progressSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <update id="softDeleteProgress" parameterType="kr.co.mindpro.ipms.domain.jobprogress.vo.JobProgressVO">
+        UPDATE utb_progress
+            SET del_yn = 'Y',
+                update_at = CURRENT_TIMESTAMP,
+                update_user = #{loginUser}
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND del_yn = 'N'
+          AND progress_seq = #{progSeq}
+    </update>
+
+    <update id="softDeleteProgressByList" parameterType="kr.co.mindpro.ipms.domain.jobprogress.vo.JobProgressVO">
+        UPDATE utb_progress
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP,
+            update_user = #{loginUser}
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND del_yn = 'N'
+          AND progress_seq IN
+        <foreach collection="progSeqList" item="progSeq" open="(" separator="," close=")">
+            #{progSeq}
+        </foreach>
+    </update>
+
+    <delete id="hardDeleteProgress">
+        DELETE FROM utb_progress
+        WHERE office_seq = #{officeSeq}
+          AND progress_seq = #{progressSeq}
+          AND tbl_seq = #{tblSeq}
+    </delete>
+
+    <delete id="hardDeleteProgressByList">
+        DELETE FROM utb_progress
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND progress_seq IN
+        <foreach collection="progSeqList" item="progSeq" open="(" separator="," close=")">
+            #{progSeq}
+        </foreach>
+    </delete>
+
+    <update id="updateProgressByProgSeq" parameterType="kr.co.mindpro.ipms.domain.jobprogress.vo.JobProgressVO">
+        UPDATE utb_progress
+           SET dept_name = #{deptName},
+               target_code = #{targetCode},
+               progress_state = #{progressState},
+               receipt_doc_name = #{receiptDocName},
+               receipt_doc_seq = #{receiptDocSeq},
+               receipt_doc_content = #{receiptDocContent},
+               submit_doc_name = #{submitDocName},
+               submit_doc_seq = #{submitDocSeq},
+               instruction_content = #{instructionContent},
+               extension_count = #{extensionCount},
+               note = #{note},
+               update_user = #{updateUser},
+               update_at = CURRENT_TIMESTAMP
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND progress_seq = #{progressSeq}
+          AND del_yn = 'N'
+    </update>
+
+
+
+</mapper>

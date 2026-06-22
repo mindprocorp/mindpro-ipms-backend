@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : InvoiceMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.paper.repository.db1.PaperMapper">
+    <select id="findAllByWork" parameterType="map" resultType="kr.co.mindpro.ipms.domain.paper.vo.PaperResponseVO">
+        SELECT
+            A.file_mapp_seq
+             , A.office_seq
+             , A.tbl_seq
+             , A.file_seq
+             , A.doc_seq
+             , D.doc_nm AS docName
+             , A.file_kind_code
+             , A.file_category_code
+             , A.note
+            /* 파일명 가져오기 (utb_file_mst에 파일명 컬럼이 있다고 가정, 만약 없다면 정확한 컬럼명으로 교체 필요) */
+             , B.file_original_nm          AS fileName
+            /* URL 조합: repository_url + '/' + file_nm */
+             , CONCAT(C.repository_url, '/', B.file_nm) AS downloadUrl
+             ,file_display_size
+             , A.create_user
+             , A.create_at
+        FROM utb_file_mapp A
+                 LEFT JOIN utb_file_mst B
+                            ON A.file_seq = B.file_seq
+                                AND B.del_yn = 'N'
+                 LEFT JOIN utb_file_repository C
+                           ON B.file_repository_seq = C.file_repository_seq
+                               AND C.del_yn = 'N'
+                 LEFT JOIN utb_document_mst D
+                           ON A.doc_seq::integer = D.doc_seq
+        WHERE A.tbl_seq = #{tblSeq}
+          AND A.office_seq = #{officeSeq}
+          AND A.del_yn = 'N'
+        ORDER BY A.create_at DESC
+    </select>
+
+    <select id="findAllByWorkDossier" parameterType="map" resultType="kr.co.mindpro.ipms.domain.paper.vo.PaperDossierVO">
+        SELECT
+            MAX(A.file_mapp_seq) AS file_mapp_seq
+             , A.office_seq
+             , A.tbl_seq
+             , MAX(A.file_seq) AS file_seq
+             , A.doc_seq
+             , fn_get_cd_nm('DOC_TYPE_CD', A.doc_seq) AS doc_name
+             , A.file_kind_code
+             , fn_get_cd_nm('DOC_TYPE_CD', A.file_kind_code) AS file_kind_name
+             , A.file_category_code
+             , A.input_create_at
+             , A.note
+             , string_agg(B.file_original_nm, ', ' ORDER BY B.file_seq) AS fileName
+             , string_agg(B.file_seq, ',' ORDER BY B.file_seq) AS fileSeqs
+             , MAX(CONCAT(C.repository_url, '/', B.file_nm)) AS downloadUrl
+             , CAST(SUM(CAST(B.file_size AS numeric)) AS varchar) AS file_display_size
+             , D.user_name_ko
+        FROM utb_file_mapp A
+                 LEFT JOIN utb_file_mst B
+                           ON A.file_seq = B.file_seq
+                               AND B.del_yn = 'N'
+                 LEFT JOIN utb_file_repository C
+                           ON B.file_repository_seq = C.file_repository_seq
+                               AND C.del_yn = 'N'
+                 LEFT JOIN utb_user_info D
+                           ON A.create_user = D.user_info_seq
+        WHERE A.tbl_seq = #{tblSeq}
+          AND A.office_seq = #{officeSeq}
+          AND A.del_yn = 'N'
+        GROUP BY
+            A.office_seq, A.tbl_seq, A.doc_seq, A.file_kind_code, A.file_category_code, A.input_create_at, A.note, D.user_name_ko
+        ORDER BY A.input_create_at DESC, MAX(A.create_at) DESC
+    </select>
+
+    <select id="findListByOfficeSeq" parameterType="string" resultType="kr.co.mindpro.ipms.domain.paper.vo.PaperResponseVO">
+        SELECT
+            file_mapp_seq
+             , office_seq
+             , tbl_seq
+             , file_seq
+             , doc_seq
+             , file_kind_code
+             , file_category_code
+             , note
+             , create_user
+             , create_at
+        FROM utb_file_mapp
+        WHERE office_seq = #{officeSeq}
+          AND del_yn = 'N'
+        ORDER BY create_at DESC
+    </select>
+
+    <select id="getDossierDetail" resultType="kr.co.mindpro.ipms.domain.paper.vo.PaperDossierVO">
+        SELECT
+            A.file_mapp_seq
+             , A.office_seq
+             , A.tbl_seq
+             , A.file_seq
+             , A.doc_seq
+             , fn_get_cd_nm('DOC_TYPE_CD', A.doc_seq) AS doc_name
+
+             , A.file_kind_code
+             , fn_get_cd_nm('DOC_TYPE_CD', A.file_kind_code) AS file_kind_name
+             , A.file_category_code
+             , A.input_create_at
+             , A.note
+             , B.file_original_nm AS fileName
+             , CONCAT(C.repository_url, '/', B.file_nm) AS downloadUrl
+             ,file_display_size
+             , D.user_name_ko
+             , A.create_user
+             , A.create_at
+             , A.update_user
+             , A.update_at
+             , A.note
+        FROM utb_file_mapp A
+                 LEFT JOIN utb_file_mst B ON A.file_seq = B.file_seq
+            AND B.del_yn = 'N'
+                 LEFT JOIN utb_file_repository C ON B.file_repository_seq = C.file_repository_seq
+            AND C.del_yn = 'N'
+            AND C.del_yn = 'N'
+                 LEFT JOIN utb_user_info D ON A.create_user = D.user_info_seq
+        WHERE A.tbl_seq = #{tblSeq}
+          AND A.office_seq = #{officeSeq}
+          AND A.del_yn = 'N'
+          AND EXISTS (
+              SELECT 1 FROM utb_file_mapp X
+              WHERE X.file_mapp_seq = #{fileMappSeq}
+                AND X.office_seq = A.office_seq
+                AND X.tbl_seq = A.tbl_seq
+                AND X.doc_seq = A.doc_seq
+                AND X.file_kind_code = A.file_kind_code
+                AND COALESCE(X.note, '') = COALESCE(A.note, '')
+                AND (X.input_create_at = A.input_create_at OR (X.input_create_at IS NULL AND A.input_create_at IS NULL))
+          )
+    </select>
+
+    <update id="deleteByWork" parameterType="kr.co.mindpro.ipms.domain.paper.vo.PaperRequestVO">
+        UPDATE utb_file_mapp
+        SET del_yn = 'Y'
+        , update_user = #{updateUser}
+        , update_at = CURRENT_TIMESTAMP
+        WHERE tbl_seq = #{tblSeq}
+        AND office_seq = #{officeSeq}
+        <if test="docSeq != null and docSeq != ''">
+            AND doc_seq = #{docSeq}
+        </if>
+        <if test="fileKindCode != null and fileKindCode != ''">
+            AND file_kind_code = #{fileKindCode}
+        </if>
+        AND del_yn = 'N'
+    </update>
+
+    <insert id="insert" parameterType="kr.co.mindpro.ipms.domain.paper.vo.PaperMstVO">
+        <selectKey keyProperty="fileMappSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_file_mapp')
+        </selectKey>
+
+        INSERT INTO utb_file_mapp (
+        file_mapp_seq
+        , office_seq
+        , tbl_seq
+        <if test="fileSeq != null">, file_seq</if>
+        , doc_seq
+        , file_kind_code
+        , file_category_code
+        , input_create_at
+        , note
+        , del_yn
+        , create_user
+        , create_at
+        ) VALUES (
+        #{fileMappSeq}
+        , #{officeSeq}
+        , #{tblSeq}
+        <if test="fileSeq != null">, #{fileSeq}</if>
+        , #{docSeq}
+        , #{fileKindCode}
+        , #{fileCategoryCode}
+        , #{inputCreateAt}
+        , #{note}
+        , 'N'
+        , #{createUser}
+        , CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <update id="deleteExistingMapping" parameterType="kr.co.mindpro.ipms.domain.paper.vo.PaperMstVO">
+        UPDATE utb_file_mapp
+        SET del_yn = 'Y'
+          , update_user = #{createUser}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND doc_seq = #{docSeq}
+          AND file_kind_code = #{fileKindCode}
+          AND (file_category_code = #{fileCategoryCode} OR (file_category_code IS NULL AND #{fileCategoryCode, jdbcType=VARCHAR} IS NULL))
+          AND del_yn = 'N'
+    </update>
+
+    <select id="findDossierArchiveByOffice" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" >
+        SELECT * FROM (
+            SELECT
+                COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification) AS "caseClassificationCode"
+        , fn_get_cd_nm('CASE_CLASSIFICATION', COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification)) AS "caseClassificationName" /* 사건구분 */
+        , fn_get_dossier_category_code(COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification), fmap.tbl_seq) AS "caseCategoryCode"
+        , fn_get_dossier_category_code(COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification), fmap.tbl_seq) AS "dossierCategory"
+        , fn_get_cd_nm('DOSSIER_CATEGORY', fn_get_dossier_category_code(COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification), fmap.tbl_seq)) AS "caseCategoryName" /* 구분 */
+        , parent_map.parent_seq AS "parentSeq"
+        , fmap.tbl_seq AS "tblSeq"
+        , uam.app_route AS "appRoute"
+        , fn_get_cd_nm('IP_PROC_TYPE', uam.app_route) as "appRouteName"
+        , uam.right_category AS "rightCategoryCode"
+        , fn_get_cd_nm('PAT_TYPE', uam.right_category) as "rightCategoryName" /* 권리 */
+        , uam.asset_no AS "assetNo"
+        , uam.asset_no AS "ourRef" /* ★ MyBatis 조건절과 맞춤 */
+        , uam.app_no AS "appNo"
+        , uam.reg_no AS "regNo"
+        , MAX(fmst.file_seq) AS "fileSeq"
+        , fmap.doc_seq AS "docSeq"
+        , fn_get_doc_nm(fmap.doc_seq) AS "docName"
+        , fn_get_cd_nm('DOC_TYPE_CD', fmap.file_kind_code) AS "productClass" /* 분류 */
+        , fn_get_doc_nm(fmap.doc_seq) AS "content" /* 내용 */
+                 , fmap.file_kind_code AS "fileKindCode"
+                 , fmap.file_kind_code AS "attachDocDiv"
+                 , MAX(fmst.file_nm) AS "fileNm"
+                 , string_agg(fmst.file_original_nm, ', ' ORDER BY fmst.file_seq) AS "fileOriginalName"
+                 , string_agg(fmst.file_original_nm, ', ' ORDER BY fmst.file_seq) AS "fileName"
+                 , string_agg(fmst.file_seq, ',' ORDER BY fmst.file_seq) AS "fileSeqs"
+                 , MAX(CONCAT(frepo.repository_url, '/', fmst.file_nm)) AS "downloadUrl"
+                 , CAST(SUM(CAST(fmst.file_size AS numeric)) AS varchar) AS "fileDisplaySize"
+                 , uui.user_info_seq AS "uploadUserSeq"
+                 , uui.user_name_ko AS "uploadUserName"
+                 , fmap.note AS "note"
+                 , fmap.note AS "fileSummary"
+                  , fmap.input_create_at AS "docDate"
+                  , MAX(fmst.create_at) AS "uploadDate"
+                  , MAX(fmst.create_at) AS "createAt"
+                 , CAST(NULL AS timestamp) AS "regDate"
+                 , uui.user_name_ko AS "createUserName"
+                 , uam.right_category AS "rightTypeCode"
+                 , CAST(NULL AS varchar) AS "deptName"
+                 , uam.app_route AS "appRouteCode"
+            FROM utb_file_mapp fmap
+                     INNER JOIN utb_file_mst fmst
+                                ON fmst.file_seq = fmap.file_seq
+                                    AND fmst.del_yn = 'N'
+                     LEFT JOIN utb_file_repository frepo
+                               ON fmst.file_repository_seq = frepo.file_repository_seq
+                                   AND frepo.del_yn = 'N'
+                     LEFT JOIN (
+                SELECT design_seq AS child_seq, app_seq AS parent_seq
+                FROM utb_app_design
+                WHERE del_yn = 'N'
+                UNION ALL
+                SELECT patent_seq AS child_seq, app_seq AS parent_seq
+                FROM utb_app_patent
+                WHERE del_yn = 'N'
+                UNION ALL
+                SELECT trademark_seq AS child_seq, app_seq AS parent_seq
+                FROM utb_app_trademark
+                WHERE del_yn = 'N'
+                UNION ALL
+                SELECT progress_seq AS child_seq, tbl_seq AS parent_seq
+                FROM utb_progress
+                WHERE del_yn = 'N'
+                UNION ALL
+                SELECT uem.app_ext_seq AS child_seq, uem.app_seq AS parent_seq
+                FROM utb_ext_mapp uem
+                         INNER JOIN utb_app_ext_mst uaem
+                                    ON uaem.app_ext_seq = uem.app_ext_seq
+                                        AND uaem.del_yn = 'N'
+                WHERE uem.del_yn = 'N'
+                UNION ALL
+                SELECT umm.memo_seq AS child_seq, umm.tbl_seq AS parent_seq
+                FROM utb_memo_mapp umm
+                         INNER JOIN utb_memo um
+                                    ON um.memo_seq = umm.memo_seq
+                                        AND um.del_yn = 'N'
+                WHERE umm.del_yn = 'N'
+            ) parent_map
+                               ON parent_map.child_seq = fmap.tbl_seq
+                     LEFT JOIN utb_app_mst uam
+                               ON uam.app_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+                                   AND uam.del_yn = 'N'
+                     LEFT JOIN utb_user_info uui
+                               ON uui.user_info_seq = fmap.create_user
+                     LEFT JOIN utb_customer uc
+                               ON uc.customer_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+                                   AND uc.del_yn = 'N'
+                     LEFT JOIN utb_conflict_mst ucm
+                               ON ucm.conflict_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+                                   AND ucm.del_yn = 'N'
+                     LEFT JOIN utb_invoice_mst uim
+                               ON uim.invoice_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+                                   AND uim.del_yn = 'N'
+                     LEFT JOIN utb_app_ext_mst uaem
+                               ON uaem.app_ext_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+                                   AND uaem.del_yn = 'N'
+                WHERE fmap.office_seq = #{request.officeSeq}
+                AND fmap.del_yn = 'N'
+                AND COALESCE(uam.app_seq, uc.customer_seq, ucm.conflict_seq, uim.invoice_seq, uaem.app_ext_seq) IS NOT NULL
+                GROUP BY
+                    COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification),
+                    uui.user_info_seq, uui.user_name_ko,
+                    parent_map.parent_seq, fmap.tbl_seq, uam.app_route, uam.right_category, uam.asset_no, uam.app_no, uam.reg_no,
+                    fmap.doc_seq, fmap.file_kind_code, fmap.note, fmap.input_create_at
+                ) AS combined
+        WHERE 1=1
+
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition"/>
+
+        ORDER BY "uploadDate" DESC
+            LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="CntDossierArchiveByOffice" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" >
+        SELECT COUNT(*) FROM (
+        SELECT
+        COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification) AS "caseClassificationCode"
+        , fn_get_cd_nm('CASE_CLASSIFICATION', COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification)) AS "caseClassificationName"
+        , fn_get_dossier_category_code(COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification), fmap.tbl_seq) AS "caseCategoryCode"
+        , fn_get_cd_nm('DOSSIER_CATEGORY', fn_get_dossier_category_code(COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification), fmap.tbl_seq)) AS "caseCategoryName"
+        , fmap.tbl_seq AS "tblSeq"
+        , uam.app_route AS "appRoute"
+        , fn_get_cd_nm('IP_PROC_TYPE', uam.app_route) as "appRouteName"
+        , uam.right_category AS "rightCategoryCode"
+        , fn_get_cd_nm('PAT_TYPE', uam.right_category) as "rightCategoryName"
+        , uam.asset_no AS "assetNo"
+        , uam.asset_no AS "ourRef" /* ★ MyBatis 조건절과 맞춤 */
+        , uam.app_no AS "appNo"
+        , uam.reg_no AS "regNo"
+        , MAX(fmst.file_seq) AS "fileSeq"
+        , fmap.doc_seq AS "docSeq"
+        , fn_get_doc_nm(fmap.doc_seq) AS "docName"
+        , fn_get_cd_nm('DOC_TYPE_CD', fmap.file_kind_code) AS "fileKindName"
+        , fmap.file_kind_code AS "fileKindCode"
+        , MAX(fmst.file_nm) AS "fileNm"
+        , string_agg(fmst.file_original_nm, ', ' ORDER BY fmst.file_seq) AS "fileOriginalName"
+        , MAX(CONCAT(frepo.repository_url, '/', fmst.file_nm)) AS "downloadUrl"
+        , CAST(SUM(CAST(fmst.file_size AS numeric)) AS varchar) AS "fileDisplaySize"
+        , uui.user_info_seq AS "uploadUserSeq"
+        , uui.user_name_ko AS "uploadUserName"
+        , fmap.note AS "note"
+        , fmap.input_create_at AS "docDate"
+        , MAX(fmst.create_at) AS "uploadDate"
+        , MAX(fmst.create_at) AS "createAt"
+        , CAST(NULL AS timestamp) AS "regDate"
+        , uui.user_name_ko AS "createUserName"
+        , uam.right_category AS "rightTypeCode"
+        , CAST(NULL AS varchar) AS "deptName"
+        , uam.app_route AS "appRouteCode"
+        FROM utb_file_mapp fmap
+        INNER JOIN utb_file_mst fmst
+        ON fmst.file_seq = fmap.file_seq
+        AND fmst.del_yn = 'N'
+        LEFT JOIN utb_file_repository frepo
+        ON fmst.file_repository_seq = frepo.file_repository_seq
+        AND frepo.del_yn = 'N'
+        LEFT JOIN (
+        SELECT design_seq AS child_seq, app_seq AS parent_seq
+        FROM utb_app_design
+        WHERE del_yn = 'N'
+        UNION ALL
+        SELECT patent_seq AS child_seq, app_seq AS parent_seq
+        FROM utb_app_patent
+        WHERE del_yn = 'N'
+        UNION ALL
+        SELECT trademark_seq AS child_seq, app_seq AS parent_seq
+        FROM utb_app_trademark
+        WHERE del_yn = 'N'
+        UNION ALL
+        SELECT progress_seq AS child_seq, tbl_seq AS parent_seq
+        FROM utb_progress
+        WHERE del_yn = 'N'
+        UNION ALL
+        SELECT uem.app_ext_seq AS child_seq, uem.app_seq AS parent_seq
+        FROM utb_ext_mapp uem
+        INNER JOIN utb_app_ext_mst uaem
+        ON uaem.app_ext_seq = uem.app_ext_seq
+        AND uaem.del_yn = 'N'
+        WHERE uem.del_yn = 'N'
+        UNION ALL
+        SELECT umm.memo_seq AS child_seq, umm.tbl_seq AS parent_seq
+        FROM utb_memo_mapp umm
+        INNER JOIN utb_memo um
+        ON um.memo_seq = umm.memo_seq
+        AND um.del_yn = 'N'
+        WHERE umm.del_yn = 'N'
+        ) parent_map
+        ON parent_map.child_seq = fmap.tbl_seq
+        LEFT JOIN utb_app_mst uam
+        ON uam.app_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+        AND uam.del_yn = 'N'
+        LEFT JOIN utb_user_info uui
+        ON uui.user_info_seq = fmap.create_user
+        LEFT JOIN utb_customer uc
+        ON uc.customer_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+        AND uc.del_yn = 'N'
+        LEFT JOIN utb_conflict_mst ucm
+        ON ucm.conflict_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+        AND ucm.del_yn = 'N'
+        LEFT JOIN utb_invoice_mst uim
+        ON uim.invoice_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+        AND uim.del_yn = 'N'
+        LEFT JOIN utb_app_ext_mst uaem
+        ON uaem.app_ext_seq = COALESCE(parent_map.parent_seq, fmap.tbl_seq)
+        AND uaem.del_yn = 'N'
+        WHERE fmap.office_seq = #{request.officeSeq}
+        AND fmap.del_yn = 'N'
+        AND COALESCE(uam.app_seq, uc.customer_seq, ucm.conflict_seq, uim.invoice_seq, uaem.app_ext_seq) IS NOT NULL
+        GROUP BY
+            COALESCE(uam.case_classification, uc.case_classification, ucm.case_classification, uim.case_classification, uaem.case_classification),
+            uui.user_info_seq, uui.user_name_ko,
+            parent_map.parent_seq, fmap.tbl_seq, uam.app_route, uam.right_category, uam.asset_no, uam.app_no, uam.reg_no,
+            fmap.doc_seq, fmap.file_kind_code, fmap.note, fmap.input_create_at
+        ) AS combined
+        WHERE 1=1
+
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition"/>
+    </select>
+
+    <select id="getDuplicateDossierCnt">
+        SELECT
+            COUNT(*)
+        FROM utb_file_mapp
+        WHERE office_seq = #{vo.officeSeq}
+          AND tbl_seq = #{vo.tblSeq}
+          AND file_mapp_seq = #{vo.fileMappSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <update id="updateDossier">
+        UPDATE utb_file_mapp
+        SET input_create_at = #{vo.inputCreateAt},
+            file_kind_code = #{vo.fileKindCode},
+            doc_seq = #{vo.docSeq},
+            note = #{vo.note},
+            update_user = #{vo.updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{vo.officeSeq}
+          AND tbl_seq = #{vo.tblSeq}
+          AND del_yn = 'N'
+          AND EXISTS (
+              SELECT 1 FROM utb_file_mapp X
+              WHERE X.file_mapp_seq = #{vo.fileMappSeq}
+                AND X.office_seq = utb_file_mapp.office_seq
+                AND X.tbl_seq = utb_file_mapp.tbl_seq
+                AND X.doc_seq = utb_file_mapp.doc_seq
+                AND X.file_kind_code = utb_file_mapp.file_kind_code
+                AND COALESCE(X.note, '') = COALESCE(utb_file_mapp.note, '')
+                AND (X.input_create_at = utb_file_mapp.input_create_at OR (X.input_create_at IS NULL AND utb_file_mapp.input_create_at IS NULL))
+          )
+    </update>
+
+    <delete id="softDeleteDossier">
+        UPDATE utb_file_mapp
+           SET del_yn = 'Y',
+               update_user = #{userSeq},
+               update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND file_mapp_seq = #{fileMappSeq}
+          AND del_yn = 'N'
+    </delete>
+
+    <!-- 전자포대 다건 논리 삭제 -->
+    <update id="softDeleteDossierList">
+        UPDATE utb_file_mapp
+           SET del_yn = 'Y',
+               update_user = #{userSeq},
+               update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND file_mapp_seq IN
+          <foreach collection="fileMappSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 전자포대 단건 물리 삭제 -->
+    <delete id="hardDeleteDossier">
+        DELETE FROM utb_file_mapp
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND file_mapp_seq = #{fileMappSeq}
+    </delete>
+
+    <!-- 전자포대 다건 물리 삭제 -->
+    <delete id="hardDeleteDossierList">
+        DELETE FROM utb_file_mapp
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND file_mapp_seq IN
+          <foreach collection="fileMappSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+    </delete>
+
+    <update id="softDeleteFilesByTblSeq">
+        UPDATE utb_file_mapp
+        SET del_yn = 'Y'
+             , update_user = #{updateUser}
+             , update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND file_category_code = #{fileKindCode}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="softDeleteFilesByFileSeqList">
+        UPDATE utb_file_mapp
+        SET del_yn = 'Y'
+             , update_user = #{updateUser}
+             , update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND file_seq IN
+          <foreach collection="fileSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 이미지 단건 논리 삭제 (tblSeq 불필요, fileSeq만으로 삭제) -->
+    <update id="softDeleteByFileSeq">
+        UPDATE utb_file_mapp
+        SET del_yn = 'Y'
+             , update_user = #{updateUser}
+             , update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND file_seq = #{fileSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <select id="getNewFileMappSeq" resultType="string">
+        SELECT fn_get_dynamic_seq('utb_file_mapp')
+    </select>
+
+</mapper>

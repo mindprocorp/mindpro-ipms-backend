@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.product.repository.db1.ProductMapper">
+
+    <!--  상품류 일괄 등록  -->
+    <insert id="insertProduct" parameterType="kr.co.mindpro.ipms.domain.product.vo.AppProductVO">
+        <selectKey keyProperty="productSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_app_product')
+        </selectKey>
+        INSERT INTO utb_app_product (
+            office_seq
+            , app_seq
+            , product_seq
+            , product_id
+            , nice_version
+            , product_class
+            , product_group_id
+            , product_count
+            , product_name_ko
+            , product_name_en
+            , create_user
+            , create_at
+            , del_yn
+            , note
+        ) VALUES (
+            #{officeSeq}
+            , #{appSeq}
+            , #{productSeq}
+            , #{productId}
+            , #{niceVersion}
+            , #{productClass}
+            , #{productGroupId}
+            , #{productCount}
+            , #{productNameKo}
+            , #{productNameEn}
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , #{delYn}
+            , #{note}
+        )
+    </insert>
+
+    <select id="getProductList" resultType="kr.co.mindpro.ipms.domain.product.vo.AppProductVO">
+        select
+            A.app_seq
+            , A.product_class
+            , A.product_group_id
+            , CASE
+                   WHEN LENGTH(A.full_ko) > 500 THEN LEFT(A.full_ko, 500) || '...'
+                   ELSE A.full_ko
+               END AS product_summary_ko
+            , CASE
+                   WHEN LENGTH(A.full_en) > 500 THEN LEFT(A.full_en, 500) || '...'
+                   ELSE A.full_en
+               END AS product_summary_en
+            , A.product_count
+        from (
+	        select
+                app_seq
+                , product_class
+                , product_group_id
+                , STRING_AGG(product_name_ko, ',' ORDER BY trim(product_name_ko) collate "C") AS full_ko
+                , STRING_AGG(product_name_en, ',' ORDER BY trim(product_name_en) collate "C") AS full_en
+                , product_count
+            from utb_app_product
+            where office_seq = #{officeSeq}
+            and app_seq = #{appSeq}
+            and del_yn = 'N'
+            group by app_seq, product_class, product_group_id, product_count
+        ) A
+    </select>
+    
+	<!-- 나이스 분류 마스터 조회 -->
+	<select id="getNiceClassList" parameterType="kr.co.mindpro.ipms.domain.product.vo.NiceClassVO" resultType="kr.co.mindpro.ipms.domain.product.vo.NiceClassVO">
+	    SELECT 
+	        class_no,
+	        nice_version,
+	        category_gb,
+	        class_nm_ko,
+	        class_nm_en,
+	        class_desc_ko,
+	        class_desc_en,
+	        del_yn,
+	        create_user,
+	        create_at,
+	        update_user,
+	        update_at
+	    FROM "MP_IPMS_PA".utb_nice_class_mst
+	    WHERE del_yn = 'N'
+	    <if test="categoryGb != null and categoryGb != ''">
+	        AND category_gb = #{categoryGb}
+	    </if>
+	    <if test="niceVersion != null and niceVersion != ''">
+	        AND nice_version = #{niceVersion}
+	    </if>
+	    ORDER BY class_no ASC
+	</select>    
+	
+    <!-- 나이스 지정상품 마스터 조회 (동적 쿼리) -->
+    <select id="getNiceProductList" parameterType="kr.co.mindpro.ipms.domain.product.vo.NiceProductVO" resultType="kr.co.mindpro.ipms.domain.product.vo.NiceProductVO">
+        SELECT 
+            product_id,
+            nice_version,
+            class_no,
+            similarity_code,
+            product_nm_ko,
+            product_nm_en,
+            note,
+            del_yn,
+            create_user,
+            create_at,
+            update_user,
+            update_at
+        FROM "MP_IPMS_PA".utb_product_mst
+        WHERE del_yn = 'N'
+        <if test="niceVersion != null and niceVersion != ''">
+            AND nice_version = #{niceVersion}
+        </if>
+        <if test="classNo != null and classNo != ''">
+            AND class_no = #{classNo}
+        </if>
+        ORDER BY class_no ASC, similarity_code ASC, product_nm_ko ASC
+    </select>
+
+    <select id="getDuplicateProductCnt" resultType="int">
+        SELECT
+            COUNT(*)
+        FROM utb_app_product
+        WHERE product_group_id = #{productGroupId}
+          AND app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <delete id="softDeleteProductGroup">
+        UPDATE utb_app_product
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE product_group_id = #{productGroupId}
+          AND app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </delete>
+
+    <!-- 지정상품 그룹 다건 논리 삭제 -->
+    <update id="softDeleteProductGroupList">
+        UPDATE utb_app_product
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND product_group_id IN
+          <foreach collection="productGroupIdList" item="id" open="(" separator="," close=")">
+              #{id}
+          </foreach>
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 지정상품 그룹 단건 물리 삭제 -->
+    <delete id="hardDeleteProductGroup">
+        DELETE FROM utb_app_product
+        WHERE product_group_id = #{productGroupId}
+          AND app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+    </delete>
+
+    <!-- 지정상품 그룹 다건 물리 삭제 -->
+    <delete id="hardDeleteProductGroupList">
+        DELETE FROM utb_app_product
+        WHERE app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND product_group_id IN
+          <foreach collection="productGroupIdList" item="id" open="(" separator="," close=")">
+              #{id}
+          </foreach>
+    </delete>
+
+    <select id="getProductInfoByGroupId" resultType="kr.co.mindpro.ipms.domain.product.vo.AppProductVO">
+        SELECT
+            app_seq
+            , product_seq
+            , product_group_id
+            , product_class
+            , product_id
+            , product_name_ko
+            , product_name_en
+            , nice_version
+            , note
+        FROM utb_app_product
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND product_group_id = #{productGroupId}
+          AND del_yn = 'N'
+    </select>
+
+</mapper>

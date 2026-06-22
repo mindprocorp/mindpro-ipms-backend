@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : ParticipantMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.participant.repository.db1.ParticipantMapper">
+
+    <insert id="insertParticipant" parameterType="kr.co.mindpro.ipms.domain.participant.vo.ParticipantMergeVo">
+        <selectKey keyProperty="participantSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_participant')
+        </selectKey>
+
+        INSERT INTO utb_participant (
+        tbl_seq,
+        participant_seq,
+        user_info_seq,
+        office_seq,
+        participant_code,
+        main_yn,
+        share_ratio,
+        note,
+        create_user,
+        create_at,
+        update_user,
+        update_at,
+        del_yn
+        ) VALUES (
+        #{tblSeq},
+        #{participantSeq},
+        #{userInfoSeq},
+        #{officeSeq},
+        #{participantCode},
+        #{mainYn},
+        #{shareRatio},
+        #{note},
+        #{createUser},
+        CURRENT_TIMESTAMP,
+        #{createUser},
+        CURRENT_TIMESTAMP,
+        'N'
+        )
+    </insert>
+
+    <select id="findParticipantsByWork" resultType="kr.co.mindpro.ipms.domain.participant.vo.ParticipantVO">
+        SELECT
+            tp.participant_code,
+            /* 1. 사용자 정보 테이블(tui)에 이름이 있으면 그것을 쓰고, 없으면 tp.user_info_seq에 담긴 문자열을 이름으로 간주 */
+            COALESCE(tui.user_name_ko, tp.user_info_seq) AS user_name_ko,
+            tp.user_info_seq
+        FROM utb_participant tp
+                 /* 2. INNER JOIN에서 LEFT JOIN으로 변경 (사용자 정보가 없어도 관계자 행이 조회되도록 함) */
+                 LEFT JOIN utb_user_info tui ON tp.user_info_seq = tui.user_info_seq
+        WHERE tp.tbl_seq = #{tblSeq}
+          AND tp.office_seq = #{officeSeq}
+          AND tp.main_yn = 'Y'
+          AND tp.del_yn = 'N'
+    </select>
+
+    <select id="findParticipantsByCode" resultType="kr.co.mindpro.ipms.domain.participant.vo.ParticipantVO">
+        SELECT
+            tp.participant_seq,
+            tp.tbl_seq,
+            tp.user_info_seq,
+            tp.office_seq,
+            tp.participant_code,
+            tp.main_yn,
+            tp.share_ratio,
+            tui.user_name_ko   FROM utb_participant tp
+                                        INNER JOIN utb_user_info tui ON tp.user_info_seq = tui.user_info_seq
+        WHERE tp.tbl_seq = #{tblSeq}
+          AND tp.office_seq = #{officeSeq}
+          AND tp.participant_code = #{participantCode}
+          AND tp.del_yn = 'N'
+        ORDER BY tp.main_yn DESC, tp.share_ratio DESC
+        </select>
+
+
+    <update id="updateDeleteStatusByWork">
+        UPDATE utb_participant
+        SET del_yn = 'N',
+            update_at = CURRENT_TIMESTAMP
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'Y'    /* 활성 상태인 건만 비활성화 */
+    </update>
+
+    <update id="updateParticipantDelYnBySeq">
+        UPDATE utb_participant
+        SET
+            del_yn = 'Y',
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE participant_seq = #{participantSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="updateParticipant" parameterType="kr.co.mindpro.ipms.domain.participant.vo.ParticipantVO">
+        UPDATE utb_participant
+        SET
+            participant_code = #{participantCode},
+            note = #{note},
+            main_yn = #{mainYn},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE participant_seq = #{participantSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <select id="findTblSeqsByFilters" resultType="string">
+        SELECT DISTINCT p.tbl_seq
+        FROM utb_participant p
+        INNER JOIN utb_user_info u ON p.user_info_seq = u.user_info_seq
+        WHERE p.office_seq = #{officeSeq}
+        AND p.del_yn = 'N'
+        AND (
+        <foreach collection="filters" item="item" separator=" OR ">
+            (
+            p.${item.codeCol} = #{item.codeVal}
+            <choose>
+                <when test="item.isTextFilter">
+                    AND u.user_name_ko LIKE CONCAT('%', #{item.value}, '%')
+                </when>
+                <otherwise>
+                    AND p.user_info_seq = #{item.value}
+                </otherwise>
+            </choose>
+            )
+        </foreach>
+        )
+    </select>
+</mapper>

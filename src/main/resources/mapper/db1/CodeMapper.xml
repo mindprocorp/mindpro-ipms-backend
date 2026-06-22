@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.code.repository.db1.CodeMapper">
+
+    <!-- 공통코드 조회 -->
+    <select id="getCommonCodeDetail" resultType="kr.co.mindpro.ipms.domain.code.vo.CodeVo">
+        SELECT
+            A.group_seq
+            ,A.group_code
+            ,A.group_name
+            ,B.code_seq
+            ,B.code
+            ,B.code_name
+            ,B.create_user
+            ,B.create_at
+        FROM utb_group_code A
+        LEFT OUTER JOIN utb_common_code B
+        ON A.group_seq = B.group_seq
+
+        <where>
+            <if test="codeSeq != null and codeSeq != ''">
+                AND B.code_seq = #{codeSeq}
+            </if>
+
+            <if test="groupCode != null and groupCode.size() > 0">
+                AND A.group_code IN
+                <foreach collection="groupCode" item="code" open="(" separator="," close=")">
+                    #{code}
+                </foreach>
+            </if>
+
+            <if test="groupName != null and groupName != ''">
+                AND A.group_name LIKE CONCAT('%', #{groupName}, '%')
+            </if>
+
+            <if test="codeName != null and codeName != ''">
+                AND B.code_name LIKE CONCAT('%', #{codeName}, '%')
+            </if>
+
+            <if test="code != null and code.size() > 0">
+                AND B.code IN
+                <foreach collection="code" item="cd" open="(" separator="," close=")">
+                    #{cd}
+                </foreach>
+            </if>
+            AND A.del_yn = 'N'
+            AND B.del_yn = 'N'
+
+        </where>
+
+        ORDER BY B.order ASC
+    </select>
+
+    <insert id="insertCommonCode">
+        INSERT INTO utb_common_code(
+           group_seq
+           , code
+           , code_name
+           , del_yn
+           , create_user
+           , create_at
+
+        )
+        VALUES(
+            #{groupSeq}
+              , #{code}
+              , #{codeName}
+              , 'N'
+              , #{createUser}
+              , NOW()
+        )
+
+    </insert>
+
+    <insert id="updateCommonCode">
+        UPDATE utb_common_code SET
+           group_name = #{groupName}
+           , code_name = #{codeName}
+           , del_yn = #{delYn}
+           , update_user = #{updateUser}
+           , update_at = NOW()
+        WHERE code_seq = #{codeSeq}
+    </insert>
+
+    <insert id="insertGroupCommonCode">
+        INSERT INTO utb_group_code(
+             group_code
+           , group_name
+           , del_yn
+           , create_user
+           , create_at
+        )
+        VALUES(
+                #{groupCode}
+              , #{groupName}
+              , 'N'
+              , #{createUser}
+              , NOW()
+          )
+
+    </insert>
+
+    <update id="updateGroupCommonCode">
+        UPDATE utb_group_code SET
+            group_name = #{groupName}
+             , del_yn = #{delYn}
+             , update_user = #{updateUser}
+             , update_at = NOW()
+        WHERE group_seq = #{groupSeq}
+    </update>
+    
+    <select id="selectCodeMstList" parameterType="kr.co.mindpro.ipms.domain.code.vo.CodeMstVO"
+            resultType="kr.co.mindpro.ipms.domain.code.vo.CodeMstVO">
+        SELECT
+            code_seq, grp_cd, cd_nm, disp_ord, use_yn, del_yn, note,
+            create_user, create_at, update_user, update_at
+        FROM  utb_code_mst
+        WHERE 1=1
+        <if test="(grpCd != null and grpCd != '') or (cdNm != null and cdNm != '')">
+            AND (
+                <if test="grpCd != null and grpCd != ''">
+                    grp_cd LIKE '%' || #{grpCd} || '%'
+                </if>
+                <if test="grpCd != null and grpCd != '' and cdNm != null and cdNm != ''">
+                    OR
+                </if>
+                <if test="cdNm != null and cdNm != ''">
+                    cd_nm LIKE '%' || #{cdNm} || '%'
+                </if>
+            )
+        </if>
+        AND del_yn = 'N'
+        ORDER BY disp_ord ASC, create_at DESC
+    </select>
+
+    <insert id="insertCodeMst" parameterType="kr.co.mindpro.ipms.domain.code.vo.CodeMstVO">
+        INSERT INTO  utb_code_mst (
+            code_seq, grp_cd, cd_nm, disp_ord, use_yn, del_yn, note, create_user, create_at
+        ) VALUES (
+            fn_get_dynamic_seq('utb_code_mst'::varchar),
+            #{grpCd}, #{cdNm}, COALESCE(#{dispOrd}, 0),
+            COALESCE(#{useYn}, 'Y'), COALESCE(#{delYn}, 'N'), #{note}, #{createUser}, CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <update id="updateCodeMst" parameterType="kr.co.mindpro.ipms.domain.code.vo.CodeMstVO">
+        UPDATE utb_code_mst
+        SET    cd_nm       = #{cdNm},
+               use_yn      = COALESCE(#{useYn}, use_yn),
+               del_yn      = COALESCE(#{delYn}, del_yn),
+               note        = #{note},
+               disp_ord    = COALESCE(#{dispOrd}, disp_ord),
+               update_user = #{updateUser},
+               update_at   = CURRENT_TIMESTAMP
+        WHERE  code_seq = #{codeSeq}
+    </update>
+
+    <!-- [그룹 삭제] soft delete — del_yn은 순수 삭제 마커. 조회 SQL에서 del_yn='N' 필터로 숨김 -->
+    <update id="deleteCodeMst">
+        UPDATE utb_code_mst
+        SET    del_yn      = 'Y',
+               update_user = #{updateUser},
+               update_at   = CURRENT_TIMESTAMP
+        WHERE  code_seq = #{codeSeq}
+    </update>
+    <update id="deleteCodeDtlByGrpCd">
+        UPDATE utb_code_dtl
+        SET    del_yn      = 'Y',
+               update_user = #{updateUser},
+               update_at   = CURRENT_TIMESTAMP
+        WHERE  grp_cd = #{grpCd}
+          AND  del_yn = 'N'
+    </update>
+
+
+    <select id="selectCodeDtlList" parameterType="String"
+            resultType="kr.co.mindpro.ipms.domain.code.vo.CodeDtlVO">
+        SELECT
+            code_seq, grp_cd, dtl_cd, cd_nm, kipo_cd,
+            ref_val_1, ref_val_2, disp_ord, use_yn, del_yn, note,
+            create_user, create_at
+        FROM utb_code_dtl
+        WHERE grp_cd = #{grpCd}
+          AND del_yn = 'N'
+        ORDER BY disp_ord ASC, create_at DESC
+    </select>
+
+    <insert id="insertCodeDtl" parameterType="kr.co.mindpro.ipms.domain.code.vo.CodeDtlVO">
+        INSERT INTO utb_code_dtl (
+            code_seq, grp_cd, dtl_cd, cd_nm, kipo_cd,
+            ref_val_1, ref_val_2, disp_ord, use_yn, del_yn, note, create_user, create_at
+        ) VALUES (
+            fn_get_dynamic_seq('utb_code_dtl'::varchar),
+            #{grpCd}, #{dtlCd}, #{cdNm}, #{kipoCd},
+            #{refVal1}, #{refVal2}, COALESCE(#{dispOrd}, 0),
+            COALESCE(#{useYn}, 'Y'), COALESCE(#{delYn}, 'N'), #{note}, #{createUser}, CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <update id="updateCodeDtl" parameterType="kr.co.mindpro.ipms.domain.code.vo.CodeDtlVO">
+        UPDATE utb_code_dtl
+        SET    dtl_cd      = #{dtlCd},
+               cd_nm       = #{cdNm},
+               kipo_cd     = #{kipoCd},
+               ref_val_1   = #{refVal1},
+               ref_val_2   = #{refVal2},
+               disp_ord    = COALESCE(#{dispOrd}, disp_ord),
+               use_yn      = COALESCE(#{useYn}, use_yn),
+               del_yn      = COALESCE(#{delYn}, del_yn),
+               note        = #{note},
+               update_user = #{updateUser},
+               update_at   = CURRENT_TIMESTAMP
+        WHERE  code_seq = #{codeSeq}
+    </update>
+
+    <update id="deleteCodeDtl" parameterType="kr.co.mindpro.ipms.domain.code.vo.CodeDtlVO">
+        UPDATE utb_code_dtl
+        SET    del_yn      = 'Y',
+               update_user = #{updateUser},
+               update_at   = CURRENT_TIMESTAMP
+        WHERE  code_seq = #{codeSeq}
+    </update>
+
+    <!--
+      [실사용화면용] 다중 그룹의 활성 코드만 반환.
+      - 디테일: del_yn='N' AND use_yn='Y'
+      - 그룹(마스터)도 동일 조건이어야 노출 — 그룹이 미사용이면 그 디테일 전부 차단
+    -->
+    <select id="selectCodeDtlListByGrpCodes" parameterType="map" resultType="kr.co.mindpro.ipms.domain.code.vo.CodeDtlVO">
+        SELECT
+            d.code_seq,
+            d.grp_cd,
+            d.dtl_cd,
+            d.cd_nm,
+            d.kipo_cd,
+            d.ref_val_1,
+            d.ref_val_2,
+            d.disp_ord,
+            d.use_yn,
+            d.del_yn,
+            d.note
+        FROM utb_code_dtl d
+        INNER JOIN utb_code_mst m
+                ON m.grp_cd = d.grp_cd
+               AND m.del_yn = 'N'
+               AND m.use_yn = 'Y'
+        WHERE d.del_yn = 'N'
+          AND d.use_yn = 'Y'
+          AND d.grp_cd IN
+        <foreach collection="grpCdList" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        ORDER BY d.grp_cd ASC, d.disp_ord ASC
+    </select>
+
+
+
+
+
+    <select id="selectDocumentList" resultType="kr.co.mindpro.ipms.domain.code.dto.response.DocumentResponse">
+        SELECT
+            doc_seq::text    AS "docSeq",
+            doc_div          AS "docDiv",
+            entry_type       AS "entryType",
+            pat_type         AS "patType",
+            doc_nm           AS "docNm",
+            auto_yn          AS "autoYn",
+            base_date_type   AS "baseDateType",
+            deadline_unit    AS "deadlineUnit",
+            deadline_val::text AS "deadlineVal",
+             ref_val          AS "refVal",
+            sort_ord::text   AS "sortOrd",
+            create_user      AS "createUser",
+            create_at        AS "createAt",
+            update_user      AS "updateUser",
+            update_at        AS "updateAt",
+            del_yn           AS "delYn",
+            note             AS "note"
+        FROM utb_document_mst
+        WHERE del_yn = 'N'
+        <if test="entryType != null and entryType != ''">
+            AND entry_type = #{entryType}
+        </if>
+        <if test="patType != null and patType != ''">
+            AND pat_type = #{patType}
+        </if>
+        <if test="docDiv != null and docDiv != ''">
+            AND doc_div = #{docDiv}
+        </if>
+        ORDER BY sort_ord ASC, doc_nm ASC
+    </select>
+
+</mapper>

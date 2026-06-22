@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    @author : seokho
+    @fileName : GracePeriodMapper.xml
+    @since  : 2026. 2. 3.
+-->
+
+<mapper namespace="kr.co.mindpro.ipms.domain.gracePeriod.repository.db1.GracePeriodMapper">
+    <insert id="insertGracePeriod" parameterType="kr.co.mindpro.ipms.domain.gracePeriod.vo.GracePeriodVO">
+        <selectKey resultType="kr.co.mindpro.ipms.domain.gracePeriod.vo.GracePeriodVO" keyProperty="gracePeriodSeq" order="BEFORE">
+            SELECT
+            fn_get_dynamic_seq('utb_app_grace_period') AS gracePeriodSeq
+        </selectKey>
+
+        INSERT INTO utb_app_grace_period (
+            app_seq
+            , office_seq
+            , grace_period_seq
+            , grace_period_content
+            , create_user
+            , create_at
+            , update_user
+            , update_at
+            , del_yn
+            , note
+        ) VALUES (
+            #{appSeq}
+            , #{officeSeq}
+            , #{gracePeriodSeq}
+            , #{gracePeriodContentCode}
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , #{updateUser}
+            , CURRENT_TIMESTAMP
+            , 'N'
+            , #{note}
+        )
+    </insert>
+
+    <select id="getGracePeriodDetail" resultType="kr.co.mindpro.ipms.domain.gracePeriod.vo.GracePeriodVO">
+        SELECT
+            mst.app_seq
+             , mst.office_seq
+             , mst.grace_period_seq
+             , mst.grace_period_content AS grace_period_content_code
+             , fn_get_cd_nm('GRACE_PRD_CONT', mst.grace_period_content) AS grace_period_content_name
+             , vtdp."submitDeadLineDate"
+             , vtdp."submitClosingDate"
+             , vtdp."gracePeriodDate"
+             , mst.create_user
+             , mst.create_at
+             , mst.update_user
+             , mst.update_at
+             , mst.del_yn
+             , mst.note
+        FROM utb_app_grace_period mst
+                 LEFT JOIN v_total_duedate_pivot vtdp ON mst.grace_period_seq = vtdp.tbl_seq
+        WHERE mst.office_seq = #{officeSeq}
+          AND mst.app_seq = #{appSeq}
+          AND mst.grace_period_seq = #{gracePeriodSeq}
+          AND mst.del_yn = 'N'
+    </select>
+
+    <select id="findAllByWork" resultType="kr.co.mindpro.ipms.domain.gracePeriod.vo.GracePeriodVO">
+        SELECT
+            mst.app_seq
+            , mst.office_seq
+            , mst.grace_period_seq
+            , mst.grace_period_content AS grace_period_content_code
+            , fn_get_cd_nm('GRACE_PRD_CONT', mst.grace_period_content) AS grace_period_content_name
+            , vtdp."submitDeadLineDate"
+            , vtdp."submitClosingDate"
+            , vtdp."gracePeriodDate"
+            , mst.create_user
+            , mst.create_at
+            , mst.update_user
+            , mst.update_at
+            , mst.del_yn
+            , mst.note
+        FROM utb_app_grace_period mst
+                 LEFT JOIN v_total_duedate_pivot vtdp ON mst.grace_period_seq = vtdp.tbl_seq
+        WHERE mst.office_seq = #{officeSeq}
+        AND mst.app_seq = #{appSeq}
+        AND mst.del_yn = 'N'
+        ORDER BY mst.create_at ASC
+    </select>
+
+    <select id="getDuplicateGracePeriodCnt">
+        SELECT
+            COUNT(*)
+        FROM utb_app_grace_period
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND grace_period_seq = #{gracePeriodSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <update id="updateGracePeriod">
+        UPDATE utb_app_grace_period
+        SET grace_period_content = #{gracePeriodContentCode}
+            , update_user = #{updateUser}
+            , update_at = CURRENT_TIMESTAMP
+            , note = #{note}
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND grace_period_seq = #{gracePeriodSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <delete id="softDeleteGracePeriod">
+        UPDATE utb_app_grace_period
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND grace_period_seq = #{gracePeriodSeq}
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="softDeleteGracePeriodByList">
+        UPDATE utb_app_grace_period
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND grace_period_seq IN
+          <foreach collection="gracePeriodSeqList" item="gracePeriodSeq" open="(" separator="," close=")">
+              #{gracePeriodSeq}
+          </foreach>
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="hardDeleteGracePeriod">
+        DELETE FROM utb_app_grace_period
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND grace_period_seq = #{gracePeriodSeq}
+    </delete>
+
+    <delete id="hardDeleteGracePeriodByList">
+        DELETE FROM utb_app_grace_period
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND grace_period_seq IN
+        <foreach collection="gracePeriodSeqList" item="gracePeriodSeq" open="(" separator="," close=")">
+            #{gracePeriodSeq}
+        </foreach>
+    </delete>
+
+
+
+</mapper>

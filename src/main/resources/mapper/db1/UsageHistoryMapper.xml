@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.history.usage.repository.db1.UsageHistoryMapper">
+
+    <!--
+      [중요] fn_get_dynamic_seq 가 트랜잭션-격리 race condition 으로 동시 호출 시 같은 seq 를 반환하는 문제가 있다.
+      사용 이력은 best-effort 로깅이라 서비스 try-catch 로 이미 잡지만, PK 충돌 ERROR 로그가 시끄러워서 ON CONFLICT 로 조용히 패스.
+      → 동시 burst 1-2건 유실 가능 (감사 로그 정확성에 큰 영향 없음). 근본 처방은 fn_get_dynamic_seq 의 nextval 화.
+    -->
+    <insert id="insertUsageHistory" parameterType="kr.co.mindpro.ipms.domain.history.usage.vo.UsageHistoryVO">
+        <selectKey keyProperty="usageHistorySeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_usage_history') AS usage_history_seq
+        </selectKey>
+
+        INSERT INTO "MP_IPMS_PA".utb_usage_history (
+                 usage_history_seq
+               , user_mst_seq
+               , office_seq
+               , menu_name
+               , action_name
+               , req_url
+               , req_method
+               , client_ip
+               , user_agent
+               , target_class
+               , target_method
+               , create_user
+               , create_at
+               , del_yn
+               , note
+        ) VALUES (
+                   #{usageHistorySeq}
+                 , #{userMstSeq}
+                 , #{officeSeq}
+                 , #{menuName}
+                 , #{actionName}
+                 , #{reqUrl}
+                 , #{reqMethod}
+                 , NULLIF(#{clientIp}, '')::inet
+                 , #{userAgent}
+                 , #{targetClass}
+                 , #{targetMethod}
+                 , #{userMstSeq}
+                 , CURRENT_TIMESTAMP
+                 , 'N'
+                 , #{note}
+                 )
+        ON CONFLICT (usage_history_seq) DO NOTHING
+    </insert>
+
+    <sql id="searchCondition">
+        <if test="dateFilters != null and dateFilters.size() > 0">
+            <foreach collection="dateFilters" item="filter">
+                <if test="filter.column == 'createAt'">
+                    AND create_at >= NULLIF(#{filter.startDate}, '')::timestamp
+                    AND create_at <![CDATA[ < ]]> (NULLIF(#{filter.endDate}, '')::timestamp + interval '1 day')
+                </if>
+            </foreach>
+        </if>
+
+        <if test="textFilters != null and textFilters.size() > 0">
+            <foreach collection="textFilters" item="filter">
+                <if test="filter.column == 'menuName'">
+                    AND menu_name LIKE CONCAT('%', #{filter.value}, '%')
+                </if>
+                <if test="filter.column == 'actionName'">
+                    AND action_name LIKE CONCAT('%', #{filter.value}, '%')
+                </if>
+                <if test="filter.column == 'userMstSeq'">
+                    AND user_mst_seq LIKE CONCAT('%', #{filter.value}, '%')
+                </if>
+            </foreach>
+        </if>
+    </sql>
+
+    <select id="selectUsageHistoryList" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" resultType="kr.co.mindpro.ipms.domain.history.usage.dto.response.UsageHistoryResponse">
+        SELECT
+            uh.usage_history_seq
+            , uh.user_mst_seq
+            , uh.office_seq
+            , uh.menu_name
+            , uh.action_name
+            , uh.req_url
+            , uh.req_method
+            , uh.client_ip
+            , uh.user_agent
+            , uh.target_class
+            , uh.target_method
+            , li.user_id AS create_user
+            , to_char(uh.create_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS create_at
+            , uh.del_yn
+            , uh.note
+        FROM "MP_IPMS_PA".utb_usage_history uh
+        LEFT JOIN utb_login_info li ON uh.user_mst_seq = li.user_mst_seq
+        WHERE uh.office_seq = #{officeSeq}
+        <include refid="searchCondition"/>
+        ORDER BY uh.create_at DESC
+        LIMIT #{pageSize} OFFSET #{offSet}
+    </select>
+
+    <select id="selectUsageHistoryTotalCount" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" resultType="int">
+        SELECT COUNT(*)
+        FROM "MP_IPMS_PA".utb_usage_history
+        WHERE office_seq = #{officeSeq}
+        <include refid="searchCondition"/>
+    </select>
+</mapper>

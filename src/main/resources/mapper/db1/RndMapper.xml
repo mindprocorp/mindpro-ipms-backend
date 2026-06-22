@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    @author	 : intst
+    @fileName : InvoiceMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.rnd.repository.db1.RndMapper">
+    <insert id="insertRnd" parameterType="kr.co.mindpro.ipms.domain.rnd.vo.RndVO">
+        <selectKey keyProperty="rndSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_app_rnd')
+        </selectKey>
+
+        INSERT INTO utb_app_rnd (
+            app_seq
+            , office_seq
+            , rnd_seq
+            , project_no
+            , research_no
+            , rnd_name
+            , rnd_start_date
+            , rnd_closing_date
+            , main_lab
+            , performing_lab
+            , share_ratio
+            , note
+            , ministry_name
+            , agency_name
+            , biz_name
+            , total_rnd_cost
+            , del_yn
+            , create_user
+            , create_at
+            , update_user
+            , update_at
+        ) VALUES (
+            #{appSeq}
+            , #{officeSeq}
+            , #{rndSeq}
+            , #{projectNo}
+            , #{researchNo}
+            , #{rndName}
+            , #{rndStartDate}
+            , #{rndClosingDate}
+            , #{mainLab}
+            , #{performingLab}
+            , #{shareRatio}
+            , #{note}
+            , #{ministryName}
+            , #{agencyName}
+            , #{bizName}
+            , #{totalRndCost}
+            , 'N'
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , #{updateUser}
+            , CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <select id="getRndDetail" resultType="kr.co.mindpro.ipms.domain.rnd.vo.RndVO">
+        SELECT
+            app_seq
+             , office_seq
+             , rnd_seq
+             , project_no
+             , research_no
+             , rnd_name
+             , rnd_start_date
+             , rnd_closing_date
+             , main_lab
+             , performing_lab
+             , share_ratio
+             , note
+             , ministry_name
+             , agency_name
+             , biz_name
+             , total_rnd_cost
+             , del_yn
+             , create_user
+             , create_at
+             , update_user
+             , update_at
+        FROM utb_app_rnd
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND rnd_seq = #{rndSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="getRndList" resultType="kr.co.mindpro.ipms.domain.rnd.vo.RndVO">
+        SELECT
+             app_seq
+             , office_seq
+             , rnd_seq
+             , project_no
+             , research_no
+             , rnd_name
+             , rnd_start_date
+             , rnd_closing_date
+             , main_lab
+             , performing_lab
+             , share_ratio
+             , note
+             , ministry_name
+             , agency_name
+             , biz_name
+             , total_rnd_cost
+             , del_yn
+             , create_user
+             , create_at
+             , update_user
+             , update_at
+        FROM utb_app_rnd
+        WHERE office_seq = #{officeSeq}
+        AND app_seq = #{appSeq}
+        AND del_yn = 'N'
+        ORDER BY create_at ASC, rnd_seq ASC
+    </select>
+
+    <select id="getRndCount" resultType="INTEGER">
+        SELECT
+            count(*)
+        FROM utb_app_rnd
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="getDuplicateRndCnt">
+        SELECT
+            count(*)
+        FROM utb_app_rnd
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND rnd_seq = #{rndSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <update id="updateRnd" parameterType="kr.co.mindpro.ipms.domain.rnd.vo.RndVO">
+        UPDATE utb_app_rnd
+           SET project_no = #{projectNo}
+             , research_no = #{researchNo}
+             , rnd_name = #{rndName}
+             , rnd_start_date = #{rndStartDate}
+             , rnd_closing_date = #{rndClosingDate}
+             , main_lab = #{mainLab}
+             , performing_lab = #{performingLab}
+             , share_ratio = #{shareRatio}
+             , note = #{note}
+             , ministry_name = #{ministryName}
+             , agency_name = #{agencyName}
+             , biz_name = #{bizName}
+             , total_rnd_cost = #{totalRndCost}
+             , update_user = #{updateUser}
+             , update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND rnd_seq = #{rndSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <delete id="softDeleteRnd">
+        UPDATE utb_app_rnd
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND rnd_seq = #{rndSeq}
+          AND del_yn = 'N'
+    </delete>
+
+    <!-- 연구과제 다건 논리 삭제 -->
+    <update id="softDeleteRndList">
+        UPDATE utb_app_rnd
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND rnd_seq IN
+          <foreach collection="rndSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 연구과제 단건 물리 삭제 -->
+    <delete id="hardDeleteRnd">
+        DELETE FROM utb_app_rnd
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND rnd_seq = #{rndSeq}
+    </delete>
+
+    <!-- 연구과제 다건 물리 삭제 -->
+    <delete id="hardDeleteRndList">
+        DELETE FROM utb_app_rnd
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND rnd_seq IN
+          <foreach collection="rndSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.dashboard.repository.db1.DashboardMapper">
+
+    <!-- 공통 office 필터 (모든 dashboard 쿼리에서 INCLUDE) -->
+    <sql id="officeFilter">
+        AND office_seq = #{officeSeq}
+    </sql>
+
+    <!-- 1. 총진행현황 -->
+    <select id="getSummaryData" resultType="kr.co.mindpro.ipms.domain.dashboard.dto.response.DashboardResponse$SummaryData">
+        SELECT
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+               AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+               AND del_yn = 'N'
+               <include refid="officeFilter"/>
+            ) AS total,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+               AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+               AND del_yn = 'N'
+               <include refid="officeFilter"/>
+            ) AS newRequest,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE update_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+               AND update_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+               AND create_at != update_at
+               AND del_yn = 'N'
+               <include refid="officeFilter"/>
+            ) AS modifiedRequest,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+               AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+               AND app_classification = '10'
+               AND del_yn = 'N'
+               <include refid="officeFilter"/>
+            ) AS domesticAccept,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+               AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+               AND app_classification != '10'
+               AND del_yn = 'N'
+               <include refid="officeFilter"/>
+            ) AS overseasAccept,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE state = '10'
+               AND create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+               AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+               AND del_yn = 'N'
+               <include refid="officeFilter"/>
+            ) AS inProgress,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE state = '20'
+               AND create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+               AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+               AND del_yn = 'N'
+               <include refid="officeFilter"/>
+            ) AS completed
+    </select>
+
+    <!-- 2. 상태별 현황 -->
+    <select id="getStatusData" resultType="kr.co.mindpro.ipms.domain.dashboard.dto.response.DashboardResponse$ChartData">
+        SELECT
+            COALESCE(fn_get_cd_nm('STATUS', state), '미확인') AS name,
+            COUNT(*) AS value,
+            CASE
+                WHEN state = '10' THEN '#4285F4'
+                WHEN state = '20' THEN '#34A853'
+                WHEN state = '30' THEN '#FF9800'
+                WHEN state = '40' THEN '#EA4335'
+                WHEN state = '99' THEN '#6B9BF2'
+                ELSE '#333333'
+            END AS fill
+        FROM utb_app_mst
+        WHERE office_seq = #{officeSeq}
+            <if test="startDate != null and startDate != ''">
+                AND create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+            </if>
+        GROUP BY state,
+                 CASE
+                    WHEN state = '10' THEN '#4285F4'
+                    WHEN state = '20' THEN '#34A853'
+                    WHEN state = '30' THEN '#FF9800'
+                    WHEN state = '40' THEN '#EA4335'
+                    WHEN state = '99' THEN '#6B9BF2'
+                    ELSE '#333333'
+                 END,
+                 fn_get_cd_nm('STATUS', state)
+    </select>
+
+    <!-- 3. 출원국가 현황 -->
+    <select id="getCountryData" resultType="kr.co.mindpro.ipms.domain.dashboard.dto.response.DashboardResponse$ChartData">
+        SELECT
+            CASE WHEN app_classification = '30' THEN '해외' ELSE '국내' END AS name,
+            COUNT(*) AS value,
+            CASE WHEN app_classification = '30' THEN '#F28B82' ELSE '#4CAF50' END AS fill
+        FROM utb_app_mst
+        WHERE office_seq = #{officeSeq}
+            <if test="startDate != null and startDate != ''">
+                AND create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+            </if>
+        GROUP BY app_classification,
+                 CASE WHEN app_classification = '30' THEN '해외' ELSE '국내' END,
+                 CASE WHEN app_classification = '30' THEN '#F28B82' ELSE '#4CAF50' END
+    </select>
+
+    <!-- 4. 권리구분 현황 -->
+    <select id="getRightData" resultType="kr.co.mindpro.ipms.domain.dashboard.dto.response.DashboardResponse$ChartData">
+        SELECT
+            COALESCE(fn_get_cd_nm('PAT_TYPE', right_category), '기타') AS name,
+            COUNT(*) AS value,
+            CASE
+                WHEN fn_get_cd_nm('PAT_TYPE', right_category) = '특허' THEN '#6B9BF2'
+                WHEN fn_get_cd_nm('PAT_TYPE', right_category) = '실용신안' THEN '#4CAF50'
+                WHEN fn_get_cd_nm('PAT_TYPE', right_category) = '디자인' THEN '#F5C542'
+                WHEN fn_get_cd_nm('PAT_TYPE', right_category) = '상표' THEN '#F28B82'
+                ELSE '#333333'
+            END AS fill
+        FROM utb_app_mst
+        WHERE office_seq = #{officeSeq}
+            <if test="startDate != null and startDate != ''">
+                AND create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+            </if>
+        GROUP BY right_category,
+                 CASE
+                    WHEN fn_get_cd_nm('PAT_TYPE', right_category) = '특허' THEN '#6B9BF2'
+                    WHEN fn_get_cd_nm('PAT_TYPE', right_category) = '실용신안' THEN '#4CAF50'
+                    WHEN fn_get_cd_nm('PAT_TYPE', right_category) = '디자인' THEN '#F5C542'
+                    WHEN fn_get_cd_nm('PAT_TYPE', right_category) = '상표' THEN '#F28B82'
+                    ELSE '#333333'
+                 END,
+                 fn_get_cd_nm('PAT_TYPE', right_category)
+    </select>
+
+    <!-- 5. 기간별 현황 (월별) -->
+    <select id="getMonthlyData" resultType="kr.co.mindpro.ipms.domain.dashboard.dto.response.DashboardResponse$MonthlyData">
+        WITH months AS (
+            SELECT 1 AS month UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL
+            SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL
+            SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+        )
+        SELECT
+            CONCAT(T.month, '월') AS month,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE EXTRACT(MONTH FROM create_at) = T.month
+               AND EXTRACT(YEAR FROM create_at) = #{year}
+               AND del_yn = 'N'
+               AND office_seq = #{officeSeq}
+            ) AS newRequest,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE EXTRACT(MONTH FROM create_at) = T.month
+               AND EXTRACT(YEAR FROM create_at) = #{year}
+               AND app_classification = '10'
+               AND del_yn = 'N'
+               AND office_seq = #{officeSeq}
+            ) AS domesticAccept,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE EXTRACT(MONTH FROM create_at) = T.month
+               AND EXTRACT(YEAR FROM create_at) = #{year}
+               AND app_classification != '10'
+               AND del_yn = 'N'
+               AND office_seq = #{officeSeq}
+            ) AS overseasAccept,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE EXTRACT(MONTH FROM update_at) = T.month
+               AND EXTRACT(YEAR FROM update_at) = #{year}
+               AND create_at != update_at
+               AND del_yn = 'N'
+               AND office_seq = #{officeSeq}
+            ) AS modifiedRequest,
+            (SELECT COUNT(*) FROM utb_app_mst
+             WHERE EXTRACT(MONTH FROM create_at) = T.month
+               AND EXTRACT(YEAR FROM create_at) = #{year}
+               AND fn_get_cd_nm('APP_STATE', app_state) = '조사의뢰'
+               AND del_yn = 'N'
+               AND office_seq = #{officeSeq}
+            ) AS searchRequest
+        FROM months T
+        ORDER BY T.month
+    </select>
+
+    <resultMap id="RecentCaseDataMap" type="kr.co.mindpro.ipms.domain.dashboard.dto.response.DashboardResponse$RecentCaseData">
+        <id property="appSeq" column="app_seq"/>
+        <result property="appNo" column="app_no"/>
+        <result property="titleKo" column="title_ko"/>
+        <result property="appState" column="app_state_code"/>
+        <result property="appStateName" column="app_state_name"/>
+        <result property="state" column="state_code"/>
+        <result property="stateName" column="state_name"/>
+        <result property="createDate" column="create_date"/>
+        <result property="rightCategory" column="right_category"/>
+    </resultMap>
+
+    <!-- 6. 최근 사건 리스트 -->
+    <select id="getRecentList" resultMap="RecentCaseDataMap">
+        SELECT
+            M.app_seq AS app_seq,
+            M.app_no AS app_no,
+            M.app_name_ko AS title_ko,
+            M.app_state AS app_state_code,
+            COALESCE(C1.cd_nm, '상태미지정') AS app_state_name,
+            M.state AS state_code,
+            COALESCE(C2.cd_nm, '상태미지정') AS state_name,
+            TO_CHAR(M.create_at, 'YYYY-MM-DD') AS create_date,
+            fn_get_cd_nm('PAT_TYPE', M.right_category) AS right_category
+        FROM utb_app_mst M
+        LEFT OUTER JOIN utb_code_dtl C1 ON C1.grp_cd = 'APP_STATE' AND C1.dtl_cd = M.app_state AND C1.del_yn = 'N'
+        LEFT OUTER JOIN utb_code_dtl C2 ON C2.grp_cd = 'STATUS' AND C2.dtl_cd = M.state AND C2.del_yn = 'N'
+        WHERE M.office_seq = #{officeSeq}
+            <if test="startDate != null and startDate != ''">
+                AND M.create_at >= TO_TIMESTAMP(#{startDate}, 'YYYY-MM-DD')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                AND M.create_at &lt;= TO_TIMESTAMP(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+            </if>
+        ORDER BY M.create_at DESC
+        LIMIT 10
+    </select>
+
+</mapper>

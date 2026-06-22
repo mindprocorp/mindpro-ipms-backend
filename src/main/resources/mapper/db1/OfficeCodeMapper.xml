@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.organization.repository.db1.OfficeCodeMapper">
+
+    <!-- 사무소별 코드 조회 (사무소 코드 + 전사공통 포함) -->
+    <select id="selectByClassAndOffice" resultType="kr.co.mindpro.ipms.domain.organization.vo.OfficeCodeVO">
+        SELECT office_code_seq, office_seq, code_class, office_code, code_name,
+               code_name_en, ref_val_1, ref_val_2, sort_ord, use_yn,
+               create_user, create_at, update_user, update_at, del_yn, note
+        FROM utb_office_code
+        WHERE code_class = #{codeClass}
+          AND (office_seq = #{officeSeq} OR office_seq IS NULL)
+          AND del_yn = 'N'
+          AND use_yn = 'Y'
+        ORDER BY sort_ord ASC, code_name ASC
+    </select>
+
+    <!-- 코드 등록 -->
+    <insert id="insertOfficeCode" parameterType="kr.co.mindpro.ipms.domain.organization.vo.OfficeCodeVO">
+        <selectKey keyProperty="officeCodeSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_office_code')
+        </selectKey>
+        INSERT INTO utb_office_code (
+            office_code_seq, office_seq, code_class, office_code, code_name,
+            code_name_en, ref_val_1, ref_val_2, sort_ord, use_yn,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{officeCodeSeq}, #{officeSeq}, #{codeClass}, #{officeCode}, #{codeName},
+            #{codeNameEn}, #{refVal1}, #{refVal2}, COALESCE(#{sortOrd}, '0'), COALESCE(#{useYn}, 'Y'),
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 코드 수정 -->
+    <update id="updateOfficeCode" parameterType="kr.co.mindpro.ipms.domain.organization.vo.OfficeCodeVO">
+        UPDATE utb_office_code
+        SET code_name = #{codeName},
+            code_name_en = #{codeNameEn},
+            ref_val_1 = #{refVal1},
+            ref_val_2 = #{refVal2},
+            sort_ord = #{sortOrd},
+            use_yn = #{useYn},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_code_seq = #{officeCodeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 코드 삭제 (논리 삭제) -->
+    <update id="deleteOfficeCode">
+        UPDATE utb_office_code
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_code_seq = #{officeCodeSeq}
+    </update>
+
+</mapper>

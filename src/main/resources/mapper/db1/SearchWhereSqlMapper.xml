@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    @author	 : seokho
+    @fileName : SearchWhereSqlMapper.xml
+    @since	 : 2026. 3. 27.
+-->
+
+<mapper namespace="kr.co.mindpro.ipms.SearchWhereSqlMapper">
+    <sql id="searchCondition">
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchDefaultCondition" />
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchDateCondition" />
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchTextCondition" />
+    </sql>
+
+    <sql id="searchDefaultCondition">
+        <if test="request.searchCondition != null and request.searchCondition.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.searchCondition" item="cond">
+                    <if test="cond.codeName != null and cond.codeName != ''">
+                        <choose>
+                            <when test="cond.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="cond.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${cond.codeName}" = #{cond.codeValue})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+    </sql>
+
+    <sql id="searchDateCondition">
+        <if test="request.dateFilters != null and request.dateFilters.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.dateFilters" item="filter">
+                    <if test="filter.dateCode != null and filter.dateCode != ''">
+                        <choose>
+                            <when test="filter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="filter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        (to_char("${filter.dateCode}"::timestamp, 'YYYYMMDD') BETWEEN #{filter.startDate} AND #{filter.endDate})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+    </sql>
+
+    <sql id="searchTextCondition">
+        <if test="request.textFilters != null and request.textFilters.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.textFilters" item="tFilter">
+                    <if test="tFilter.codeName != null and tFilter.codeName != ''">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${tFilter.codeName}" ILIKE CONCAT('%', #{tFilter.codeValue}, '%'))
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+    </sql>
+
+</mapper>

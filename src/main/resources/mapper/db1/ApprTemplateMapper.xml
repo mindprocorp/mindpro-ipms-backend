@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.organization.repository.db1.ApprTemplateMapper">
+
+    <!-- 템플릿 목록 조회 -->
+    <select id="selectTemplateList" resultType="kr.co.mindpro.ipms.domain.organization.vo.ApprTemplateVO">
+        SELECT appr_template_seq, office_seq, template_name, sort_ord,
+               create_user, create_at, update_user, update_at, del_yn, note
+        FROM utb_appr_template
+        WHERE office_seq = #{officeSeq}
+          AND del_yn = 'N'
+        <if test="templateName != null and templateName != ''">
+          AND template_name LIKE '%' || #{templateName} || '%'
+        </if>
+        ORDER BY sort_ord ASC, create_at DESC
+    </select>
+
+    <!-- 템플릿 단건 조회 -->
+    <select id="selectTemplateBySeq" resultType="kr.co.mindpro.ipms.domain.organization.vo.ApprTemplateVO">
+        SELECT appr_template_seq, office_seq, template_name, sort_ord,
+               create_user, create_at, update_user, update_at, del_yn, note
+        FROM utb_appr_template
+        WHERE appr_template_seq = #{apprTemplateSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <!-- 템플릿 결재선 단계 조회 -->
+    <select id="selectTemplateLines" resultType="kr.co.mindpro.ipms.domain.organization.vo.ApprTemplateLineVO">
+        SELECT template_line_seq, appr_template_seq, step_order, step_type, step_name,
+               approver_type, approver_ref_seq, approver_name,
+               create_user, create_at, update_user, update_at, del_yn, note
+        FROM utb_appr_template_line
+        WHERE appr_template_seq = #{apprTemplateSeq}
+          AND del_yn = 'N'
+        ORDER BY step_order ASC
+    </select>
+
+    <!-- 템플릿 등록 -->
+    <insert id="insertTemplate" parameterType="kr.co.mindpro.ipms.domain.organization.vo.ApprTemplateVO">
+        <selectKey keyProperty="apprTemplateSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_appr_template')
+        </selectKey>
+        INSERT INTO utb_appr_template (
+            appr_template_seq, office_seq, template_name, sort_ord,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{apprTemplateSeq}, #{officeSeq}, #{templateName}, #{sortOrd},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 템플릿 수정 -->
+    <update id="updateTemplate" parameterType="kr.co.mindpro.ipms.domain.organization.vo.ApprTemplateVO">
+        UPDATE utb_appr_template
+        SET template_name = #{templateName},
+            sort_ord = #{sortOrd},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE appr_template_seq = #{apprTemplateSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 템플릿 삭제 (논리) -->
+    <update id="deleteTemplate">
+        UPDATE utb_appr_template
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE appr_template_seq = #{apprTemplateSeq}
+    </update>
+
+    <!-- 결재선 단계 등록 -->
+    <insert id="insertTemplateLine" parameterType="kr.co.mindpro.ipms.domain.organization.vo.ApprTemplateLineVO">
+        <selectKey keyProperty="templateLineSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_appr_template_line')
+        </selectKey>
+        INSERT INTO utb_appr_template_line (
+            template_line_seq, appr_template_seq, step_order, step_type, step_name,
+            approver_type, approver_ref_seq, approver_name,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{templateLineSeq}, #{apprTemplateSeq}, #{stepOrder}, #{stepType}, #{stepName},
+            #{approverType}, #{approverRefSeq}, #{approverName},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 결재선 단계 전체 삭제 (템플릿 수정 시 기존 삭제 후 재등록) -->
+    <update id="deleteTemplateLines">
+        UPDATE utb_appr_template_line
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE appr_template_seq = #{apprTemplateSeq}
+    </update>
+
+</mapper>

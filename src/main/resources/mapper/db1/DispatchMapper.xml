@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.co.mindpro.ipms.domain.dispatch.repository.db1.DispatchMapper">
+
+    <select id="findList" resultType="kr.co.mindpro.ipms.domain.dispatch.vo.DispatchVO">
+        SELECT * FROM (
+            SELECT
+                A.dispatch_seq AS "dispatchSeq"
+                 , A.office_seq AS "officeSeq"
+                 , A.category AS "category"
+                 , A.category AS "ioDiv"
+                 , A.doc_type AS "docType"
+                 , A.dispatch_date AS "dispatchDate"
+                 , A.client AS "client"
+                 , A.client AS "contractor"
+                 , A.manager AS "manager"
+                 , A.doc_content AS "docContent"
+                 , A.method AS "method"
+                 , A.method AS "sendMethod"
+                 , A.send_date AS "sendDate"
+                 , A.reg_no AS "regNo"
+                 , A.reg_no AS "postNo"
+                 , A.ack_yn AS "ackYn"
+                 , A.post_addr AS "postAddr"
+                 , A.note AS "note"
+                 , A.del_yn AS "delYn"
+                 , A.create_user AS "createUser"
+                 , A.create_at AS "createAt"
+                 , A.update_user AS "updateUser"
+                 , A.update_at AS "updateAt"
+                 , B.user_name_ko AS "uploadUserName"
+            FROM utb_doc_dispatch A
+            LEFT JOIN utb_user_info B ON A.create_user = B.user_info_seq
+            WHERE A.office_seq = #{request.officeSeq}
+              AND A.del_yn = 'N'
+        ) Z
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition"/>
+        ORDER BY Z."createAt" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="countList" resultType="long">
+        SELECT COUNT(*) FROM (
+            SELECT
+                A.dispatch_seq AS "dispatchSeq"
+                 , A.office_seq AS "officeSeq"
+                 , A.category AS "category"
+                 , A.category AS "ioDiv"
+                 , A.doc_type AS "docType"
+                 , A.dispatch_date AS "dispatchDate"
+                 , A.client AS "client"
+                 , A.client AS "contractor"
+                 , A.manager AS "manager"
+                 , A.doc_content AS "docContent"
+                 , A.method AS "method"
+                 , A.method AS "sendMethod"
+                 , A.send_date AS "sendDate"
+                 , A.reg_no AS "regNo"
+                 , A.reg_no AS "postNo"
+                 , A.ack_yn AS "ackYn"
+                 , A.post_addr AS "postAddr"
+                 , A.note AS "note"
+                 , A.del_yn AS "delYn"
+                 , A.create_user AS "createUser"
+                 , A.create_at AS "createAt"
+                 , A.update_user AS "updateUser"
+                 , A.update_at AS "updateAt"
+                 , B.user_name_ko AS "uploadUserName"
+            FROM utb_doc_dispatch A
+            LEFT JOIN utb_user_info B ON A.create_user = B.user_info_seq
+            WHERE A.office_seq = #{request.officeSeq}
+              AND A.del_yn = 'N'
+        ) Z
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition"/>
+    </select>
+
+    <insert id="insert" parameterType="kr.co.mindpro.ipms.domain.dispatch.vo.DispatchVO">
+        <selectKey keyProperty="dispatchSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_doc_dispatch')
+        </selectKey>
+        INSERT INTO utb_doc_dispatch (
+            dispatch_seq
+            , office_seq
+            , category
+            , doc_type
+            , dispatch_date
+            , client
+            , manager
+            , doc_content
+            , method
+            , send_date
+            , reg_no
+            , ack_yn
+            , post_addr
+            , note
+            , del_yn
+            , create_user
+            , create_at
+            , update_user
+            , update_at
+        ) VALUES (
+            #{dispatchSeq}
+            , #{officeSeq}
+            , #{category}
+            , #{docType}
+            , #{dispatchDate}
+            , #{client}
+            , #{manager}
+            , #{docContent}
+            , #{method}
+            , #{sendDate}
+            , #{regNo}
+            , #{ackYn}
+            , #{postAddr}
+            , #{note}
+            , 'N'
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <update id="update" parameterType="kr.co.mindpro.ipms.domain.dispatch.vo.DispatchVO">
+        UPDATE utb_doc_dispatch
+        SET category = #{category}
+          , doc_type = #{docType}
+          , dispatch_date = #{dispatchDate}
+          , client = #{client}
+          , manager = #{manager}
+          , doc_content = #{docContent}
+          , method = #{method}
+          , send_date = #{sendDate}
+          , reg_no = #{regNo}
+          , ack_yn = #{ackYn}
+          , post_addr = #{postAddr}
+          , note = #{note}
+          , update_user = #{updateUser}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE dispatch_seq = #{dispatchSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="delete">
+        UPDATE utb_doc_dispatch
+        SET del_yn = 'Y'
+          , update_user = #{userSeq}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE dispatch_seq = #{dispatchSeq}
+    </update>
+
+</mapper>

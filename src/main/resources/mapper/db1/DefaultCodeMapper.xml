@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.organization.repository.db1.DefaultCodeMapper">
+
+    <!-- 기본 시드 코드 전체 조회 -->
+    <select id="selectAllDefaults" resultType="kr.co.mindpro.ipms.domain.organization.vo.OfficeCodeVO">
+        SELECT code_class AS codeClass,
+               code_name AS codeName,
+               code_name_en AS codeNameEn,
+               sort_ord AS sortOrd,
+               use_yn AS useYn
+        FROM utb_office_default_code
+        WHERE del_yn = 'N' AND use_yn = 'Y'
+        ORDER BY code_class ASC, sort_ord ASC
+    </select>
+
+</mapper>

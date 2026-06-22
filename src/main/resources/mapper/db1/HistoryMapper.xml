@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.history.repository.db1.HistoryMapper">
+    <insert id="insertModifiedHist" parameterType="kr.co.mindpro.ipms.domain.history.vo.ModifiedHistVO">
+        <selectKey keyProperty="modifiedHistSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_modified_hist')
+        </selectKey>
+
+        INSERT INTO utb_modified_hist (
+            modified_hist_seq,
+            tbl_seq,
+            before_value,
+            after_value,
+            modified_content,
+            note,
+            office_seq,
+            modified_date,
+            create_user,
+            create_at,
+            update_user,
+            update_at,
+            del_yn
+        ) VALUES (
+            #{modifiedHistSeq},
+            #{tblSeq},
+            #{beforeValue},
+            #{afterValue},
+            #{modifiedContent},
+            #{note},
+            #{officeSeq},
+            CURRENT_TIMESTAMP,
+            #{createUser},
+            CURRENT_TIMESTAMP,
+            #{updateUser},
+            CURRENT_TIMESTAMP,
+            'N'
+        )
+    </insert>
+
+    <select id="selectHistoryList" resultType="kr.co.mindpro.ipms.domain.history.dto.response.HistoryResponse$HistorySearchListDetail">
+        SELECT * FROM (
+            WITH source_data AS (
+                SELECT
+                    h.modified_hist_seq,
+                    h.tbl_seq,
+                    h.before_value,
+                    h.after_value,
+                    h.modified_content,
+                    h.note,
+                    h.office_seq,
+                    h.create_at,
+                    h.create_user,
+                    u.user_name_ko AS actionUser
+                FROM utb_modified_hist h
+                LEFT JOIN utb_user_info u ON h.create_user = u.user_info_seq
+                WHERE h.office_seq = #{request.officeSeq}
+                  AND h.del_yn = 'N'
+                  <if test="request.tblSeq != null and request.tblSeq != ''">
+                      AND h.tbl_seq = #{request.tblSeq}
+                  </if>
+            ),
+            mapped_data AS (
+                SELECT
+                    s.*,
+                    COALESCE(
+                        app_dir.app_seq, cft.app_seq, req.app_seq, ids.app_seq,
+                        CASE 
+                             WHEN (s.tbl_seq LIKE 'APPMST%') THEN s.tbl_seq
+                             WHEN (s.tbl_seq LIKE 'CFTMST%') THEN cft.app_seq
+                             ELSE NULL
+                        END
+                    ) AS resolved_app_seq,
+                    cft.case_classification AS cft_route,
+                    cft.case_category_code  AS cft_category
+                FROM source_data s
+                LEFT JOIN "MP_IPMS_PA".utb_app_mst app_dir ON s.tbl_seq = app_dir.app_seq AND s.office_seq = app_dir.office_seq
+                LEFT JOIN "MP_IPMS_PA".utb_conflict_mst cft ON s.tbl_seq = cft.conflict_seq AND s.office_seq = cft.office_seq
+                LEFT JOIN "MP_IPMS_PA".utb_required_document req ON s.tbl_seq = req.required_doc_seq AND s.office_seq = req.office_seq
+                LEFT JOIN "MP_IPMS_PA".utb_app_ids ids ON s.tbl_seq = ids.ids_seq AND s.office_seq = ids.office_seq
+            )
+            SELECT
+                m.modified_hist_seq AS "seq",
+                to_char(m.create_at, 'YYYY-MM-DD HH:MI:SS') AS "actionDateTime",
+                m.modified_content AS "actionType",
+                COALESCE(m.cft_category, app.app_classification) AS "caseCategoryCode",
+                "MP_IPMS_PA".fn_get_cd_nm('NAT_IO_DIV', COALESCE(m.cft_category, app.app_classification)) AS "caseCategory",
+                COALESCE(app.asset_no) AS "ourRef",
+                COALESCE(app.app_no, '') AS "appNo",
+                COALESCE(app.reg_no, '') AS "regNo",
+                m.note AS "fieldName",
+                m.before_value AS "beforeValue",
+                m.after_value AS "afterValue",
+                m.actionUser AS "actionUser",
+                app.dept_code AS "deptName",
+                m.create_at
+            FROM mapped_data m
+            LEFT JOIN "MP_IPMS_PA".utb_app_mst app ON m.resolved_app_seq = app.app_seq AND m.office_seq = app.office_seq
+        ) Z
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+        ORDER BY Z.create_at DESC
+        <if test="request.pageSize != null and request.offSet != null">
+           LIMIT #{request.pageSize} OFFSET #{request.offSet}
+        </if>
+    </select>
+
+    <select id="selectHistoryListTotalCount" resultType="int">
+        SELECT COUNT(*) FROM (
+            WITH source_data AS (
+                SELECT
+                    h.modified_hist_seq,
+                    h.tbl_seq,
+                    h.before_value,
+                    h.after_value,
+                    h.modified_content,
+                    h.note,
+                    h.office_seq,
+                    h.create_at,
+                    h.create_user,
+                    u.user_name_ko AS actionUser
+                FROM utb_modified_hist h
+                LEFT JOIN utb_user_info u ON h.create_user = u.user_info_seq
+                WHERE h.office_seq = #{request.officeSeq}
+                  AND h.del_yn = 'N'
+                  <if test="request.tblSeq != null and request.tblSeq != ''">
+                      AND h.tbl_seq = #{request.tblSeq}
+                  </if>
+            ),
+            mapped_data AS (
+                SELECT
+                    s.*,
+                    COALESCE(
+                        app_dir.app_seq, cft.app_seq, req.app_seq, ids.app_seq,
+                        CASE 
+                             WHEN (s.tbl_seq LIKE 'APPMST%') THEN s.tbl_seq
+                             WHEN (s.tbl_seq LIKE 'CFTMST%') THEN cft.app_seq
+                             ELSE NULL
+                        END
+                    ) AS resolved_app_seq,
+                    cft.case_classification AS cft_route,
+                    cft.case_category_code  AS cft_category
+                FROM source_data s
+                LEFT JOIN "MP_IPMS_PA".utb_app_mst app_dir ON s.tbl_seq = app_dir.app_seq AND s.office_seq = app_dir.office_seq
+                LEFT JOIN "MP_IPMS_PA".utb_conflict_mst cft ON s.tbl_seq = cft.conflict_seq AND s.office_seq = cft.office_seq
+                LEFT JOIN "MP_IPMS_PA".utb_required_document req ON s.tbl_seq = req.required_doc_seq AND s.office_seq = req.office_seq
+                LEFT JOIN "MP_IPMS_PA".utb_app_ids ids ON s.tbl_seq = ids.ids_seq AND s.office_seq = ids.office_seq
+            )
+            SELECT
+                m.modified_hist_seq AS "seq",
+                to_char(m.create_at, 'YYYY-MM-DD HH:MI:SS') AS "actionDateTime",
+                m.modified_content AS "actionType",
+                COALESCE(m.cft_category, app.app_classification) AS "caseCategoryCode",
+                "MP_IPMS_PA".fn_get_cd_nm('NAT_IO_DIV', COALESCE(m.cft_category, app.app_classification)) AS "caseCategory",
+                COALESCE(app.asset_no) AS "ourRef",
+                COALESCE(app.app_no, '') AS "appNo",
+                COALESCE(app.reg_no, '') AS "regNo",
+                m.note AS "fieldName",
+                m.before_value AS "beforeValue",
+                m.after_value AS "afterValue",
+                m.actionUser AS "actionUser",
+                app.dept_code AS "deptName",
+                m.create_at
+            FROM mapped_data m
+            LEFT JOIN "MP_IPMS_PA".utb_app_mst app ON m.resolved_app_seq = app.app_seq AND m.office_seq = app.office_seq
+        ) Z
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+    </select>
+
+    <select id="selectModifiedHistDetail" resultType="kr.co.mindpro.ipms.domain.history.vo.ModifiedHistVO">
+        SELECT
+            h.modified_hist_seq            AS modifiedHistSeq,
+            h.tbl_seq                      AS tblSeq,
+            h.before_value                 AS beforeValue,
+            h.after_value                  AS afterValue,
+            h.modified_content             AS modifiedContent,
+            h.note                        AS note,
+            h.office_seq                  AS officeSeq,
+            u.user_name_ko                AS createUser,
+            TO_CHAR(h.modified_date, 'YYYYMMDD') AS modifiedDate
+        FROM utb_modified_hist h
+                 LEFT JOIN utb_user_info u ON h.create_user = u.user_info_seq
+        WHERE h.modified_hist_seq = #{modifiedHistSeq}
+          AND h.office_seq = #{officeSeq}
+          AND h.del_yn = 'N'
+    </select>
+
+    <select id="selectModifiedHistListByTblSeq" resultType="kr.co.mindpro.ipms.domain.history.vo.ModifiedHistVO">
+        SELECT
+            h.modified_hist_seq  AS modifiedHistSeq,
+            h.tbl_seq            AS tblSeq,
+            h.before_value       AS beforeValue,
+            h.after_value        AS afterValue,
+            h.modified_content   AS modifiedContent,
+            h.note               AS note,
+            h.office_seq         AS officeSeq,
+            TO_CHAR(h.modified_date, 'YYYYMMDD') AS modifiedDate,
+            u.user_name_ko       AS createUser    /* VO의 createUser 필드에 이름 주입 */
+        FROM utb_modified_hist h
+                 LEFT JOIN utb_user_info u ON h.create_user = u.user_info_seq
+        WHERE h.tbl_seq = #{request.tblSeq}
+          AND h.office_seq = #{request.officeSeq}
+          AND h.del_yn = 'N'
+        ORDER BY h.create_at DESC
+        <if test="request.pageSize != null and request.offSet != null">
+            LIMIT #{request.pageSize} OFFSET #{request.offSet}
+        </if>
+    </select>
+
+    <update id="deleteModifiedHist">
+        UPDATE utb_modified_hist
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE modified_hist_seq = #{modifiedHistSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="deleteModifiedHistList">
+        UPDATE utb_modified_hist
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND modified_hist_seq IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+</mapper>

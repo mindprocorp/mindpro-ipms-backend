@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.history.login.repository.db1.LoginHistoryMapper">
+    <insert id="insertLoginHistory" parameterType="kr.co.mindpro.ipms.domain.history.login.vo.LoginHistoryVO">
+        <selectKey resultType="kr.co.mindpro.ipms.domain.history.login.vo.LoginHistoryVO" keyProperty="loginHistorySeq" order="BEFORE">
+            SELECT
+            fn_get_dynamic_seq('utb_login_history') AS loginHistorySeq
+        </selectKey>
+
+        INSERT INTO utb_login_history (
+                user_mst_seq
+              , office_seq
+              , login_history_seq
+              , login_ip
+              , category
+              , login_success_yn
+              , login_device_type
+              , login_country
+              , login_type
+              , create_user
+              , create_at
+              , del_yn
+              , note
+        ) VALUES (
+               #{userMstSeq}
+             , #{officeSeq}
+             , #{loginHistorySeq}
+             , NULLIF(#{loginIp}, '')::inet
+             , #{category}
+             , #{loginSuccessYn}
+             , #{loginDeviceType}
+             , #{loginCountry}
+             , #{loginType}
+             , #{createUser}
+             , CURRENT_TIMESTAMP
+             , 'N'
+             , #{note}
+                 )
+    </insert>
+
+    <sql id="searchCondition">
+        WHERE ulh.office_seq = #{officeSeq}
+
+        <if test="dateFilters != null and dateFilters.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="dateFilters" item="filter">
+                    <if test="filter.column == 'createAt'">
+                        <choose>
+                            <when test="filter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="filter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        (to_char(ulh.create_at::timestamp, 'YYYYMMDD') BETWEEN #{filter.startDate} AND #{filter.endDate})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        <if test="textFilters != null and textFilters.size() > 0">
+            <foreach collection="textFilters" item="filter">
+                <if test="filter.column == 'userId'">
+                    <choose>
+                        <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                        <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                        <otherwise> AND </otherwise>
+                    </choose>
+                    uli.user_id LIKE CONCAT('%', #{filter.value}, '%')
+                </if>
+                <if test="filter.column == 'loginIp'">
+                    <choose>
+                        <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                        <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                        <otherwise> AND </otherwise>
+                    </choose>
+                    ulh.login_ip::text LIKE CONCAT('%', #{filter.value}, '%')
+                </if>
+                <if test="filter.column == 'userNameKo'">
+                    <choose>
+                        <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                        <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                        <otherwise> AND </otherwise>
+                    </choose>
+                    uui.user_name_ko LIKE CONCAT('%', #{filter.value}, '%')
+                </if>
+                <if test="filter.column == 'userNameEn'">
+                    AND uui.user_name_en LIKE CONCAT('%', #{filter.value}, '%')
+                </if>
+                <if test="filter.column == 'category'">
+                    <choose>
+                        <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                        <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                        <otherwise> AND </otherwise>
+                    </choose>
+                    ulh.category LIKE CONCAT('%', #{filter.value}, '%')
+                </if>
+            </foreach>
+        </if>
+    </sql>
+
+    <select id="selectLoginHistoryList" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" resultType="kr.co.mindpro.ipms.domain.history.login.dto.response.LoginHistoryResponse">
+        SELECT
+        ulh.user_mst_seq
+        , ulh.login_history_seq
+        , to_char(ulh.create_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS create_at
+        , ulh.login_ip
+        , ulh.category
+        , uli.user_id
+        , uui.user_name_ko
+        , uui.user_name_en
+        , uui.user_name_zh
+        , ulh.login_success_yn
+        , ulh.login_device_type
+        , ulh.login_country
+        , ulh.login_type
+        , ulh.note
+        FROM utb_login_history ulh
+        LEFT JOIN utb_user_info uui ON ulh.user_mst_seq = uui.user_mst_seq
+        LEFT JOIN utb_login_info uli ON ulh.user_mst_seq = uli.user_mst_seq
+        <include refid="searchCondition"/>
+        ORDER BY ulh.create_at DESC
+        LIMIT #{pageSize} OFFSET #{offSet}
+    </select>
+
+    <select id="selectLoginHistoryTotalCount" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" resultType="int">
+        SELECT COUNT(*)
+        FROM utb_login_history ulh
+        LEFT JOIN utb_user_info uui ON ulh.user_mst_seq = uui.user_mst_seq
+        LEFT JOIN utb_login_info uli ON ulh.user_mst_seq = uli.user_mst_seq
+        <include refid="searchCondition"/>
+    </select>
+</mapper>

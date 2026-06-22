@@ -1,0 +1,1049 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.user.repository.db1.UserMapper">
+
+    <!-- 1. 사용자 통합 조회 (로그인/상세/마스터 조인) -->
+    <select id="findByUserId" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT
+            L.user_mst_seq,
+            L.office_seq,
+            L.office_employee_seq,
+            L.user_id,
+            L.user_password,
+            L.password_update_date::timestamp AS password_update_date,
+            L.login_fail_count,
+            L.email_auth_yn,
+            L.login_lock_yn,
+            L.active_at::timestamp AS active_at,
+            L.del_yn,
+            I.user_info_seq,
+            I.user_name_ko,
+            I.user_name_en,
+            I.user_email,
+            I.user_mobile_no,
+            I.user_tel_no,
+            I.user_fax_no,
+            I.user_addr,
+            I.user_addr_detail,
+            I.user_post_no,
+            I.dept_name,
+            I.user_position,
+            E.role_seq,              -- [수정] 사무소별 역할 (oe.role_seq) — 멀티 사무소 대응
+            I.acct_status_code,      -- [추가] 계정 상태 (PENDING/ACTIVE/LOCKED) — 로그인 차단 판정용
+            E.office_employee_seq,   -- [추가] 직원 고유 키
+            E.admin_auth,            -- [추가] 관리자 여부 (Y/N)
+            (SELECT CONCAT(fr.repository_url, '/', fm.file_nm)
+                 FROM utb_file_mapp fp
+                 JOIN utb_file_mst fm ON fp.file_seq = fm.file_seq AND fm.del_yn = 'N'
+                 LEFT JOIN utb_file_repository fr ON fm.file_repository_seq = fr.file_repository_seq
+                 WHERE fp.tbl_seq = I.user_info_seq
+                   AND fp.file_category_code = 'profileImage'
+                   AND fp.del_yn = 'N'
+                 ORDER BY fp.create_at DESC LIMIT 1
+            ) AS profile_image_url,
+            M.user_category_code
+        FROM utb_login_info L
+        INNER JOIN utb_user_info I ON L.user_mst_seq = I.user_mst_seq
+        INNER JOIN utb_user_mst M ON L.user_mst_seq = M.user_mst_seq
+        LEFT JOIN utb_office_employee E
+               ON L.user_mst_seq = E.user_mst_seq
+              AND L.office_seq   = E.office_seq
+              AND E.del_yn       = 'N'
+        WHERE L.user_id = #{userId}
+          AND L.del_yn = 'N'
+    </select>
+
+    <!-- 2. 전체 사용자 목록 조회 -->
+    <select id="findAllUsers" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT 
+            M.user_mst_seq, 
+            M.user_category_code, 
+            I.user_name_ko, 
+            I.user_email, 
+            I.user_mobile_no,
+            L.user_id, 
+            L.office_seq, 
+            L.del_yn, 
+            L.create_at::timestamp AS create_at
+        FROM utb_user_mst M
+        JOIN utb_user_info I ON M.user_mst_seq = I.user_mst_seq
+        JOIN utb_login_info L ON M.user_mst_seq = L.user_mst_seq
+        WHERE L.del_yn = 'N'
+        ORDER BY L.create_at DESC
+    </select>
+
+    <!--
+      3. [LEGACY] 사용자 권한 조회 (utb_user_role)
+      - JWT auth claim 발급 (login/refresh/switchOffice) 용도로만 사용.
+      - 권한 결정에는 거의 안 쓰임 (Spring Security hasRole 체크 1곳뿐).
+      - 추후 oe.role_seq → utb_role_mst.role_type 기반으로 통합 예정.
+    -->
+    <select id="getUserRoleByMstSeq" resultType="string">
+        SELECT user_role
+        FROM utb_user_role
+        WHERE user_mst_seq = #{userMstSeq}
+          AND del_yn = 'N'
+        ORDER BY create_at ASC
+    </select>
+
+    <!-- 4. 사무소 정보 저장 (사업자) -->
+    <insert id="insertOfficeMst" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        <selectKey keyProperty="officeSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_office_mst')
+        </selectKey>
+        INSERT INTO utb_office_mst (
+            office_seq, office_short_name, office_addr, office_tel, office_auth_yn, office_invite_code,
+            plan_seq,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{officeSeq}, #{officeShortName}, #{officeAddr}, #{officeTel}, 'Y', #{officeInviteCode},
+            #{planSeq},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- [멀티 사무소] 유저의 active 사무소 전환 — user_info/login_info 의 office_seq 동기 갱신 -->
+    <update id="switchActiveOffice">
+        UPDATE utb_user_info
+        SET    office_seq  = #{officeSeq},
+               update_at   = CURRENT_TIMESTAMP,
+               update_user = #{userMstSeq}
+        WHERE  user_mst_seq = #{userMstSeq} AND del_yn = 'N'
+    </update>
+    <update id="switchActiveOfficeLogin">
+        UPDATE utb_login_info
+        SET    office_seq  = #{officeSeq},
+               update_at   = CURRENT_TIMESTAMP,
+               update_user = #{userMstSeq}
+        WHERE  user_mst_seq = #{userMstSeq} AND del_yn = 'N'
+    </update>
+
+    <!-- [멀티 사무소] 유저가 ACTIVE membership을 특정 사무소에 가졌는지 검증 (switch 전 체크, PENDING 제외) -->
+    <select id="existsActiveMembership" resultType="int">
+        SELECT COUNT(*) FROM utb_office_employee
+        WHERE  user_mst_seq     = #{userMstSeq}
+          AND  office_seq       = #{officeSeq}
+          AND  del_yn           = 'N'
+          AND  acct_status_code = 'ACTIVE'
+    </select>
+
+    <!-- [멀티 사무소] 유저가 해당 사무소에 membership 존재 여부 (상태 무관, del_yn='N') — join 전 중복 체크용 -->
+    <select id="existsAnyMembership" resultType="int">
+        SELECT COUNT(*) FROM utb_office_employee
+        WHERE  user_mst_seq = #{userMstSeq}
+          AND  office_seq   = #{officeSeq}
+          AND  del_yn       = 'N'
+    </select>
+
+    <!-- [탈퇴] 해당 사무소의 "나를 제외한" 다른 관리자(admin='Y') 수 -->
+    <select id="countOtherAdmins" resultType="int">
+        SELECT COUNT(*) FROM utb_office_employee
+        WHERE  office_seq   = #{officeSeq}
+          AND  user_mst_seq &lt;&gt; #{userMstSeq}
+          AND  admin_auth   = 'Y'
+          AND  del_yn       = 'N'
+          AND  acct_status_code = 'ACTIVE'
+    </select>
+
+    <!-- [탈퇴] 해당 사무소의 "나를 제외한" 다른 활성 구성원 수 -->
+    <select id="countOtherMembers" resultType="int">
+        SELECT COUNT(*) FROM utb_office_employee
+        WHERE  office_seq   = #{officeSeq}
+          AND  user_mst_seq &lt;&gt; #{userMstSeq}
+          AND  del_yn       = 'N'
+          AND  acct_status_code = 'ACTIVE'
+    </select>
+
+    <!-- [탈퇴] 유저가 가진 "해당 사무소를 제외한" 다른 활성 membership 수 -->
+    <select id="countOtherMemberships" resultType="int">
+        SELECT COUNT(*) FROM utb_office_employee
+        WHERE  user_mst_seq = #{userMstSeq}
+          AND  office_seq  &lt;&gt; #{officeSeq}
+          AND  del_yn       = 'N'
+          AND  acct_status_code = 'ACTIVE'
+    </select>
+
+    <!-- [탈퇴] 유저의 다른 활성 사무소 1건 (자동 전환용, 최근 가입순) -->
+    <select id="findFallbackOfficeSeq" resultType="string">
+        SELECT office_seq FROM utb_office_employee
+        WHERE  user_mst_seq = #{userMstSeq}
+          AND  office_seq  &lt;&gt; #{excludeOfficeSeq}
+          AND  del_yn       = 'N'
+          AND  acct_status_code = 'ACTIVE'
+        ORDER BY create_at DESC
+        LIMIT 1
+    </select>
+
+    <!-- [사업자 전환] office_auth_yn 조회 (이미 사업자인지 검증용) -->
+    <select id="findOfficeAuthYn" resultType="string">
+        SELECT office_auth_yn FROM utb_office_mst
+        WHERE  office_seq = #{officeSeq} AND del_yn = 'N'
+    </select>
+
+    <!-- [사업자 전환] 개인 사무소를 사업자 사무소로 업그레이드 (office_mst 업데이트) -->
+    <update id="upgradeOfficeToCorporate">
+        UPDATE utb_office_mst
+        SET    office_short_name = #{officeShortName},
+               office_addr       = #{officeAddr},
+               office_tel        = #{officeTel},
+               office_auth_yn    = 'Y',
+               update_at         = CURRENT_TIMESTAMP,
+               update_user       = #{updateUser}
+        WHERE  office_seq = #{officeSeq}
+          AND  del_yn    = 'N'
+    </update>
+
+    <!-- [사업자 전환] user_category_code를 CORPORATE로 변경 -->
+    <update id="updateUserCategoryCode">
+        UPDATE utb_user_mst
+        SET    user_category_code = #{userCategoryCode},
+               update_at          = CURRENT_TIMESTAMP,
+               update_user        = #{updateUser}
+        WHERE  user_mst_seq = #{userMstSeq}
+          AND  del_yn       = 'N'
+    </update>
+
+    <!-- [USRKR 생명주기] 유저의 1인 사무소 조회 (del_yn 무관 — 소프트 삭제된 것도 찾음) -->
+    <select id="findUserPersonalOffice" resultType="string">
+        SELECT oe.office_seq
+        FROM   utb_office_employee oe
+        INNER JOIN utb_office_mst o ON oe.office_seq = o.office_seq
+        WHERE  oe.user_mst_seq = #{userMstSeq}
+          AND  o.office_auth_yn = 'N'              -- 개인 사무소만
+          AND  oe.admin_auth    = 'Y'              -- 본인이 admin (=소유자)
+          AND  o.office_seq LIKE 'USRKR%'
+        ORDER BY oe.create_at ASC
+        LIMIT 1
+    </select>
+
+    <!-- [USRKR 생명주기] 개인 사무소 소프트 비활성화 (office + employee 동기) -->
+    <update id="softDeletePersonalOffice">
+        UPDATE utb_office_mst
+        SET    del_yn = 'Y', update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  office_seq = #{officeSeq}
+    </update>
+    <update id="softDeletePersonalOfficeEmployee">
+        UPDATE utb_office_employee
+        SET    del_yn = 'Y', update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  office_seq = #{officeSeq} AND user_mst_seq = #{userMstSeq}
+    </update>
+
+    <!-- [USRKR 생명주기] 개인 사무소 재활성화 (del_yn='Y' → 'N' 복구) -->
+    <update id="reactivatePersonalOffice">
+        UPDATE utb_office_mst
+        SET    del_yn = 'N', update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  office_seq = #{officeSeq}
+    </update>
+    <update id="reactivatePersonalOfficeEmployee">
+        UPDATE utb_office_employee
+        SET    del_yn = 'N', acct_status_code = 'ACTIVE',
+               update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  office_seq = #{officeSeq} AND user_mst_seq = #{userMstSeq}
+    </update>
+
+    <!-- [계정 탈퇴] 유저의 모든 membership 소프트 삭제 -->
+    <update id="deleteAllMemberships">
+        UPDATE utb_office_employee
+        SET    del_yn = 'Y', update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  user_mst_seq = #{userMstSeq} AND del_yn = 'N'
+    </update>
+
+    <!-- [계정 탈퇴] 본인 소유 USRKR office 모두 삭제 (del_yn 무관) -->
+    <update id="deleteAllPersonalOffices">
+        UPDATE utb_office_mst
+        SET    del_yn = 'Y', update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  office_seq IN (
+            SELECT oe.office_seq FROM utb_office_employee oe
+            INNER JOIN utb_office_mst o ON oe.office_seq = o.office_seq
+            WHERE  oe.user_mst_seq = #{userMstSeq}
+              AND  o.office_auth_yn = 'N'
+              AND  o.office_seq LIKE 'USRKR%'
+              AND  oe.admin_auth = 'Y'
+        )
+    </update>
+
+    <!-- [계정 탈퇴] user_mst/user_info/login_info 소프트 삭제 -->
+    <update id="softDeleteAccount">
+        UPDATE utb_user_mst
+        SET    del_yn = 'Y', update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  user_mst_seq = #{userMstSeq}
+    </update>
+    <update id="softDeleteAccountUserInfo">
+        UPDATE utb_user_info
+        SET    del_yn = 'Y', update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  user_mst_seq = #{userMstSeq}
+    </update>
+    <update id="softDeleteAccountLoginInfo">
+        UPDATE utb_login_info
+        SET    del_yn = 'Y', update_at = CURRENT_TIMESTAMP, update_user = #{userMstSeq}
+        WHERE  user_mst_seq = #{userMstSeq}
+    </update>
+
+    <!-- [승인] 호출자가 해당 사무소의 관리자(admin='Y')인지 검증 -->
+    <select id="isOfficeAdmin" resultType="int">
+        SELECT COUNT(*) FROM utb_office_employee
+        WHERE  user_mst_seq     = #{userMstSeq}
+          AND  office_seq       = #{officeSeq}
+          AND  admin_auth       = 'Y'
+          AND  del_yn           = 'N'
+          AND  acct_status_code = 'ACTIVE'
+    </select>
+
+    <!-- [승인] target 유저가 해당 사무소에 PENDING membership을 가졌는지 검증 -->
+    <select id="existsPendingMembership" resultType="int">
+        SELECT COUNT(*) FROM utb_office_employee
+        WHERE  user_mst_seq     = #{userMstSeq}
+          AND  office_seq       = #{officeSeq}
+          AND  acct_status_code = 'PENDING'
+          AND  del_yn           = 'N'
+    </select>
+
+    <!-- [승인] PENDING → ACTIVE 승격 -->
+    <update id="approveOfficeMembership">
+        UPDATE utb_office_employee
+        SET    acct_status_code = 'ACTIVE',
+               update_at        = CURRENT_TIMESTAMP,
+               update_user      = #{approverMstSeq}
+        WHERE  user_mst_seq     = #{userMstSeq}
+          AND  office_seq       = #{officeSeq}
+          AND  acct_status_code = 'PENDING'
+          AND  del_yn           = 'N'
+    </update>
+
+    <!-- [승인] user_info.acct_status_code가 PENDING이고 현재 office_seq가 승인 사무소면 ACTIVE로 전환 (로그인 차단 해제) -->
+    <update id="unblockPendingUserInfo">
+        UPDATE utb_user_info
+        SET    acct_status_code = 'ACTIVE',
+               update_at        = CURRENT_TIMESTAMP,
+               update_user      = #{approverMstSeq}
+        WHERE  user_mst_seq     = #{userMstSeq}
+          AND  office_seq       = #{officeSeq}
+          AND  acct_status_code = 'PENDING'
+          AND  del_yn           = 'N'
+    </update>
+
+    <!-- [탈퇴] office_employee soft delete -->
+    <update id="leaveOfficeEmployee">
+        UPDATE utb_office_employee
+        SET    del_yn      = 'Y',
+               update_at   = CURRENT_TIMESTAMP,
+               update_user = #{userMstSeq}
+        WHERE  user_mst_seq = #{userMstSeq}
+          AND  office_seq   = #{officeSeq}
+          AND  del_yn       = 'N'
+    </update>
+
+    <!-- [멀티 사무소] 유저가 속한 모든 활성 사무소 + 각 사무소의 membership 정보 (acct는 oe 기준) -->
+    <select id="findMyOffices" resultType="kr.co.mindpro.ipms.domain.user.vo.MyOfficeVO">
+        SELECT o.office_seq,
+               o.office_short_name,
+               o.office_auth_yn,
+               oe.admin_auth,
+               r.role_nm,
+               r.role_type,
+               oe.acct_status_code
+        FROM   utb_office_employee oe
+        INNER JOIN utb_office_mst o ON oe.office_seq = o.office_seq AND o.del_yn = 'N'
+        LEFT JOIN utb_role_mst r    ON r.role_seq = oe.role_seq AND r.del_yn = 'N'
+        WHERE  oe.user_mst_seq = #{userMstSeq}
+          AND  oe.del_yn = 'N'
+        ORDER BY o.office_short_name ASC
+    </select>
+
+    <!--
+      [슈퍼관리자 전용] 시스템 전체 사무소 목록 (드롭다운용).
+      - utb_office_mst 전체 + 본인 멤버십(oe) LEFT JOIN
+      - 본인 멤버 사무소: 실제 role/admin_auth/acct 표시
+      - 비멤버 사무소: '관리자 모드'로 표시 (admin_auth='Y', role_type='SUPER_ADMIN', acct='ACTIVE')
+    -->
+    <!-- [슈퍼관리자 전환] 대상 사무소에서의 본인 멤버십 role_type (없으면 null) -->
+    <select id="findRoleTypeByMembership" resultType="string">
+        SELECT r.role_type
+        FROM   utb_office_employee oe
+        LEFT JOIN utb_role_mst r ON r.role_seq = oe.role_seq AND r.del_yn = 'N'
+        WHERE  oe.user_mst_seq = #{userMstSeq}
+          AND  oe.office_seq   = #{officeSeq}
+          AND  oe.del_yn       = 'N'
+        LIMIT 1
+    </select>
+
+    <select id="findAllOfficesForSuperAdmin" resultType="kr.co.mindpro.ipms.domain.user.vo.MyOfficeVO">
+        SELECT o.office_seq,
+               o.office_short_name,
+               o.office_auth_yn,
+               COALESCE(oe.admin_auth, 'Y')                  AS admin_auth,
+               COALESCE(r.role_nm, '시스템관리자')            AS role_nm,
+               COALESCE(r.role_type, 'SYSTEM_ADMIN')         AS role_type,
+               COALESCE(oe.acct_status_code, 'ACTIVE')       AS acct_status_code
+        FROM   utb_office_mst o
+        LEFT JOIN utb_office_employee oe
+               ON oe.office_seq = o.office_seq
+              AND oe.user_mst_seq = #{userMstSeq}
+              AND oe.del_yn = 'N'
+        LEFT JOIN utb_role_mst r
+               ON r.role_seq = oe.role_seq
+              AND r.del_yn = 'N'
+        WHERE  o.del_yn = 'N'
+        ORDER BY
+            -- 1순위: 본인 실제 SUPER_ADMIN 본거지 사무소
+            CASE WHEN r.role_type = 'SUPER_ADMIN' THEN 0 ELSE 1 END,
+            -- 2순위: 본인 멤버 사무소(실제 oe 매핑이 있는 사무소)
+            CASE WHEN oe.office_seq IS NOT NULL THEN 0 ELSE 1 END,
+            o.office_short_name ASC
+    </select>
+
+    <!-- 4-1. [신규] 개인 1인 사무소 저장 (USRKR prefix, office_auth_yn='N') -->
+    <insert id="insertPersonalOffice" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        <selectKey keyProperty="officeSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_office_mst_user')
+        </selectKey>
+        INSERT INTO utb_office_mst (
+            office_seq, office_short_name, office_auth_yn, office_invite_code,
+            plan_seq,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{officeSeq}, #{officeShortName}, 'N', #{officeInviteCode},
+            #{planSeq},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 5. 사용자 마스터 저장 -->
+    <insert id="insertUserMst" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        <selectKey keyProperty="userMstSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_user_mst')
+        </selectKey>
+        INSERT INTO utb_user_mst (
+            user_mst_seq, user_category_code, mobile_auth_yn, 
+            privacypolicy_agree, terms_agree, marketing_agree, 
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{userMstSeq}, #{userCategoryCode}, COALESCE(#{mobileAuthYn}, 'N'), 
+            #{privacypolicyAgree}, #{termsAgree}, #{marketingAgree}, 
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 6. 사용자 상세 정보 저장 -->
+    <insert id="insertUserInfo" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        <selectKey keyProperty="userInfoSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_user_info')
+        </selectKey>
+        INSERT INTO utb_user_info (
+            user_info_seq, user_mst_seq, office_seq,
+            user_name_ko, user_addr, user_addr_detail, user_email,
+            user_mobile_no,
+            user_fax_no,      user_tel_no,      user_post_no,
+            dept_name,        user_position,    etax_yn,
+            acct_status_code,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{userInfoSeq}, #{userMstSeq}, #{officeSeq},
+            #{userNameKo}, #{userAddr}, #{userAddrDetail}, #{userEmail},
+            #{userMobileNo}, #{userFaxNo},
+            #{userTelNo}, #{userPostNo}, #{deptName}, #{userPosition},  #{etaxYn},
+            #{acctStatusCode},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 7. 로그인 계정 정보 저장 -->
+    <insert id="insertLoginInfo" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        INSERT INTO utb_login_info (
+            user_mst_seq, office_seq, user_id, user_password, 
+            password_update_date, login_fail_count, email_auth_yn, 
+            login_lock_yn, active_at, create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{userMstSeq}, #{officeSeq}, #{userId}, #{userPassword}, 
+            CURRENT_TIMESTAMP, '0', 'N', 'N', CURRENT_TIMESTAMP,
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+	<insert id="insertBizInfo" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+	    /* 사용자 사업자 상세 정보 저장 (복합 PK 대응) - 2026.01.09 */
+	    <selectKey keyProperty="bizInfoSeq" resultType="string" order="BEFORE">
+	        SELECT fn_get_dynamic_seq('utb_biz_info')
+	    </selectKey>
+	    INSERT INTO utb_biz_info (
+	        biz_info_seq,
+	        office_seq,
+	        biz_reg_no,
+	        ceo_name,
+	        biz_corp_name,
+	        biz_addr,
+	        biz_addr_detail,
+	        biz_post_no,
+	        biz_tel_no,
+	        biz_fax_no,
+	        biz_reg_file,
+	        biz_type,
+	        biz_kind,
+	        create_user,
+	        create_at,
+	        update_user,
+	        update_at,
+	        del_yn
+	    ) VALUES (
+	        #{bizInfoSeq},
+	        #{officeSeq}, 
+	        #{bizRegNo}, 
+	        #{ceoName}, 
+	        #{bizCorpName}, 
+	        #{bizAddr}, 
+	        #{bizAddrDetail},
+	        #{bizPostNo},
+	        #{bizTelNo},
+	        #{bizFaxNo},
+	        #{bizRegFile},
+	        #{bizType},
+	        #{bizKind},
+	        #{createUser}, 
+	        CURRENT_TIMESTAMP, 
+	        #{updateUser}, 
+	        CURRENT_TIMESTAMP, 
+	        'N'
+	    )
+	</insert>
+    
+
+    <!--
+      9. [LEGACY] 권한 정보 저장 (utb_user_role)
+      - 실제 권한 결정 X. JWT auth claim 발급 용도로만 사용.
+      - 진실의 원천: utb_office_employee.admin_auth + utb_role_mst.role_type
+      - 추후 제거 예정 (oe.role_seq 기반으로 JWT 통합 시).
+    -->
+    <insert id="insertUserRole">
+        INSERT INTO utb_user_role (
+            user_role, user_mst_seq, create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{userRole}, #{userMstSeq}, #{createUser}, CURRENT_TIMESTAMP, #{createUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 9-x. [LEGACY 유지] 사업자 전환 시 user_role 문자열 갱신 — JWT priority 동기화 전용. utb_user_role 제거 시 함께 삭제. -->
+    <update id="updateUserRoleString">
+        UPDATE utb_user_role
+        SET    user_role   = #{userRole},
+               update_at   = CURRENT_TIMESTAMP,
+               update_user = #{updateUser}
+        WHERE  user_mst_seq = #{userMstSeq} AND del_yn = 'N'
+    </update>
+
+    <!-- 9-1. 사무소 직원 등록 (acct_status_code: admin은 ACTIVE, 초대 가입은 PENDING) -->
+    <insert id="insertOfficeEmployee" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        <selectKey keyProperty="officeEmployeeSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_office_employee')
+        </selectKey>
+        INSERT INTO utb_office_employee (
+            office_seq, office_employee_seq, user_mst_seq,
+            admin_auth, office_employee_position, office_employee_dept,
+            work_code, position_code, job_grade_code, dept_seq,
+            acct_status_code,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{officeSeq}, #{officeEmployeeSeq}, #{userMstSeq},
+            #{adminAuth}, #{officeEmployeePosition}, #{officeEmployeeDept},
+            #{workCode}, #{positionCode}, #{jobGradeCode}, #{deptSeq},
+            COALESCE(#{acctStatusCode}, 'ACTIVE'),
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <!-- 9-2. 사무소 직원 정보 수정 -->
+    <update id="updateOfficeEmployee" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        UPDATE utb_office_employee
+        SET
+            office_employee_position = #{officeEmployeePosition},
+            office_employee_dept = #{officeEmployeeDept},
+            work_code = #{workCode},
+            position_code = #{positionCode},
+            job_grade_code = #{jobGradeCode},
+            dept_seq = #{deptSeq},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND user_mst_seq = #{userMstSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 9-3. 사무소 직원 논리 삭제 (승인 거절 시) -->
+    <update id="deleteOfficeEmployee">
+        UPDATE utb_office_employee
+        SET del_yn = 'Y',
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND user_mst_seq = #{userMstSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 계정 상태 코드만 단독 업데이트 (NULL 허용 — 거절 시 초기화 용도) -->
+    <update id="updateAcctStatusCode">
+        UPDATE utb_user_info
+        SET acct_status_code = #{acctStatusCode,jdbcType=VARCHAR},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE user_mst_seq = #{userMstSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 그룹코드+코드명으로 dtl_cd 조회 -->
+    <select id="findDtlCdByGrpCdAndName" resultType="string">
+        SELECT dtl_cd
+        FROM utb_code_dtl
+        WHERE grp_cd = #{grpCd}
+          AND cd_nm = #{cdNm}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+    <!-- 10. 사용자 상세 정보 수정 (조건부 UPDATE — null 컬럼은 건드리지 않음) -->
+    <update id="updateUserInfo" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        UPDATE utb_user_info
+        <set>
+            <if test="userNameKo != null">user_name_ko = #{userNameKo},</if>
+            <if test="userNameEn != null">user_name_en = #{userNameEn},</if>
+            <if test="userEmail != null">user_email = #{userEmail},</if>
+            <if test="userMobileNo != null">user_mobile_no = #{userMobileNo},</if>
+            <if test="userTelNo != null">user_tel_no = #{userTelNo},</if>
+            <if test="userFaxNo != null">user_fax_no = #{userFaxNo},</if>
+            <if test="userPostNo != null">user_post_no = #{userPostNo},</if>
+            <if test="userAddr != null">user_addr = #{userAddr},</if>
+            <if test="userAddrDetail != null">user_addr_detail = #{userAddrDetail},</if>
+            <if test="deptName != null">dept_name = #{deptName},</if>
+            <if test="userPosition != null">user_position = #{userPosition},</if>
+            <if test="userTypeCode != null">user_type_code = #{userTypeCode},</if>
+            <if test="workStatusCode != null">work_status_code = #{workStatusCode},</if>
+            <if test="employStatusCode != null">employ_status_code = #{employStatusCode},</if>
+            <if test="acctStatusCode != null">acct_status_code = #{acctStatusCode},</if>
+            <if test="roleSeq != null">role_seq = #{roleSeq},</if>
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE user_info_seq = #{userInfoSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 11. 비밀번호 수정 -->
+    <update id="updatePassword">
+        UPDATE utb_login_info
+        SET user_password = #{encPw}, password_update_date = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 11. 논리 삭제 (Soft Delete) -->
+    <update id="deleteUserByUserId">
+        UPDATE utb_login_info
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+    </update>
+
+
+
+
+
+    <!-- 관계자    -->
+    <update id="updateUserInfoToDeletedIfChanged" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        UPDATE utb_user_info
+        SET
+            del_yn      = 'Y',
+            update_user = #{updateUser},
+            update_at   = CURRENT_TIMESTAMP
+        WHERE user_info_seq = #{userInfoSeq}
+          AND office_seq    = #{officeSeq}
+          AND del_yn        = 'N'
+            /* 화면에서 넘어온 값과 DB의 기존 값이 하나라도 다를 때만 실행 */
+          AND (
+            COALESCE(user_name_ko, '')     != COALESCE(#{userNameKo}, '')     OR
+                     COALESCE(user_mobile_no, '')   != COALESCE(#{userMobileNo}, '')   OR
+                     COALESCE(user_email, '')       != COALESCE(#{userEmail}, '')       OR
+                     COALESCE(dept_name, '')        != COALESCE(#{deptName}, '')        OR
+                     COALESCE(user_position, '')    != COALESCE(#{userPosition}, '')    OR
+                     COALESCE(user_tel_no, '')      != COALESCE(#{userTelNo}, '')      OR
+                     COALESCE(user_fax_no, '')      != COALESCE(#{userFaxNo}, '')      OR
+                     COALESCE(user_post_no, '')     != COALESCE(#{userPostNo}, '')     OR
+                     COALESCE(user_addr, '')        != COALESCE(#{userAddr}, '')        OR
+                     COALESCE(user_addr_detail, '') != COALESCE(#{userAddrDetail}, '')  OR
+                     COALESCE(etax_yn, 'N')         != COALESCE(#{etaxYn}, 'N')
+            )
+    </update>
+
+
+
+
+
+    <!-- 관계자 이름 조회    -->
+    <select id="findUserMasterByInfoSeq" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT
+            USER_INFO_SEQ,
+            USER_NAME_KO,
+            USER_EMAIL,
+            OFFICE_SEQ,
+            USER_MST_SEQ,
+            USER_MOBILE_NO,
+            USER_ADDR,
+            USER_POST_NO
+        FROM UTB_USER_INFO
+        WHERE USER_INFO_SEQ = #{userInfoSeq}
+          AND DEL_YN = 'N'
+            LIMIT 1
+    </select>
+    <!-- 기존에 등록되어있는지 userinfo 조회    -->
+    <select id="findUserMasterByNameAndEmail" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT
+            USER_INFO_SEQ,
+            USER_NAME_KO,
+            USER_EMAIL,
+            OFFICE_SEQ,
+            USER_MST_SEQ,
+            USER_MOBILE_NO,
+            USER_TEL_NO,
+            USER_ADDR
+        FROM UTB_USER_INFO
+        WHERE USER_NAME_KO = #{userNameKo}
+          AND USER_EMAIL = #{userEmail}
+          AND OFFICE_SEQ = #{officeSeq}
+          AND DEL_YN = 'N'
+        ORDER BY CREATE_AT DESC
+            LIMIT 1
+    </select>
+    <!-- 이름으로 검색시 사용자정보 목록조회    -->
+    <select id="findUserInfoListByName" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT
+            I.user_info_seq,
+            I.user_mst_seq,
+            E.office_seq,
+            I.user_name_ko,
+            I.user_name_en,
+            I.user_email,
+            I.user_mobile_no,
+            I.user_tel_no,
+            I.user_fax_no,
+            I.user_post_no,
+            I.user_addr,
+            I.user_addr_detail,
+            I.dept_name,
+            I.user_position,
+            (SELECT CONCAT(fr.repository_url, '/', fm.file_nm)
+                 FROM utb_file_mapp fp
+                 JOIN utb_file_mst fm ON fp.file_seq = fm.file_seq AND fm.del_yn = 'N'
+                 LEFT JOIN utb_file_repository fr ON fm.file_repository_seq = fr.file_repository_seq
+                 WHERE fp.tbl_seq = I.user_info_seq
+                   AND fp.file_category_code = 'profileImage'
+                   AND fp.del_yn = 'N'
+                 ORDER BY fp.create_at DESC LIMIT 1
+            ) AS profile_image_url,
+            I.create_at,
+            I.del_yn,
+            E.office_employee_seq,
+            E.admin_auth,
+            E.office_employee_position,
+            E.office_employee_dept,
+            E.work_code,
+            E.position_code,
+            E.job_grade_code,
+            E.dept_seq,
+            I.user_type_code,
+            (SELECT cd_nm FROM utb_code_dtl WHERE grp_cd = 'USER_TYPE' AND dtl_cd = I.user_type_code AND del_yn = 'N' LIMIT 1) AS user_type_name,
+            I.work_status_code,
+            (SELECT cd_nm FROM utb_code_dtl WHERE grp_cd = 'WORK_STATUS' AND dtl_cd = I.work_status_code AND del_yn = 'N' LIMIT 1) AS work_status_name,
+            I.employ_status_code,
+            (SELECT cd_nm FROM utb_code_dtl WHERE grp_cd = 'EMPLOY_STATUS' AND dtl_cd = I.employ_status_code AND del_yn = 'N' LIMIT 1) AS employ_status_name,
+            I.acct_status_code,
+            (SELECT cd_nm FROM utb_code_dtl WHERE grp_cd = 'ACCT_STATUS' AND dtl_cd = I.acct_status_code AND del_yn = 'N' LIMIT 1) AS acct_status_name,
+            E.role_seq,
+            (SELECT role_nm FROM utb_role_mst WHERE role_seq = E.role_seq AND del_yn = 'N' LIMIT 1) AS role_name
+        FROM utb_office_employee E
+        INNER JOIN utb_user_info I ON E.user_mst_seq = I.user_mst_seq AND I.del_yn = 'N'
+        WHERE E.office_seq = #{officeSeq}
+          AND E.del_yn = 'N'
+          AND (E.acct_status_code IS NULL OR E.acct_status_code != 'PENDING')
+          <if test="userNameKo != null and userNameKo != ''">
+          AND I.user_name_ko LIKE '%' || #{userNameKo} || '%'
+          </if>
+        ORDER BY create_at DESC, user_name_ko ASC
+    </select>
+
+    <!-- 승인 대기 직원 조회 (직원 승인 탭 전용) -->
+    <select id="findPendingUserInfoList" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT
+            I.user_info_seq,
+            I.user_mst_seq,
+            E.office_seq,
+            I.user_name_ko,
+            I.user_name_en,
+            I.user_email,
+            I.user_mobile_no,
+            I.user_tel_no,
+            I.user_fax_no,
+            I.user_post_no,
+            I.user_addr,
+            I.user_addr_detail,
+            I.dept_name,
+            I.user_position,
+            I.create_at,
+            I.del_yn,
+            E.office_employee_seq,
+            E.admin_auth,
+            E.office_employee_position,
+            E.office_employee_dept,
+            E.work_code,
+            E.position_code,
+            E.job_grade_code,
+            E.dept_seq,
+            E.acct_status_code,
+            (SELECT cd_nm FROM utb_code_dtl WHERE grp_cd = 'ACCT_STATUS' AND dtl_cd = E.acct_status_code AND del_yn = 'N' LIMIT 1) AS acct_status_name
+        FROM utb_office_employee E
+        INNER JOIN utb_user_info I ON E.user_mst_seq = I.user_mst_seq AND I.del_yn = 'N'
+        WHERE E.office_seq = #{officeSeq}
+          AND E.del_yn = 'N'
+          AND E.acct_status_code = 'PENDING'
+        ORDER BY I.create_at DESC
+    </select>
+
+
+    <!-- 아이디 찾기: 이름 + 휴대폰 -->
+    <select id="findByNameAndPhone" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT
+            L.user_mst_seq,
+            L.user_id,
+            L.user_password,
+            L.login_lock_yn,
+            L.login_fail_count,
+            L.del_yn,
+            L.office_seq,
+            I.user_info_seq,
+            I.user_name_ko,
+            I.user_email,
+            I.user_mobile_no,
+            L.create_at::timestamp AS create_at
+        FROM utb_user_info I
+        INNER JOIN utb_login_info L ON I.user_mst_seq = L.user_mst_seq
+        WHERE I.user_name_ko = #{userNameKo}
+          AND I.user_mobile_no = #{userMobileNo}
+          AND L.del_yn = 'N'
+          AND I.del_yn = 'N'
+        ORDER BY L.create_at DESC
+        LIMIT 1
+    </select>
+
+    <!-- 비밀번호 찾기: 아이디 + 이름 + 휴대폰 본인 확인 -->
+    <select id="findByUserIdAndNameAndPhone" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT
+            L.user_mst_seq,
+            L.user_id,
+            I.user_name_ko,
+            I.user_email,
+            I.user_mobile_no
+        FROM utb_login_info L
+        INNER JOIN utb_user_info I ON L.user_mst_seq = I.user_mst_seq
+        WHERE L.user_id = #{userId}
+          AND I.user_name_ko = #{userNameKo}
+          AND I.user_mobile_no = #{userMobileNo}
+          AND L.del_yn = 'N'
+          AND I.del_yn = 'N'
+        LIMIT 1
+    </select>
+
+    <!-- 아이디 중복 확인 -->
+    <select id="existsByUserId" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM utb_login_info
+            WHERE user_id = #{userId}
+              AND del_yn = 'N'
+        )
+    </select>
+
+    <!-- 로그인 실패 횟수 증가 -->
+    <update id="incrementLoginFailCount">
+        UPDATE utb_login_info
+        SET login_fail_count = (COALESCE(login_fail_count::int, 0) + 1)::text,
+            update_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 로그인 실패 횟수 초기화 -->
+    <update id="resetLoginFailCount">
+        UPDATE utb_login_info
+        SET login_fail_count = '0',
+            update_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 계정 잠금 -->
+    <update id="lockAccount">
+        UPDATE utb_login_info
+        SET login_lock_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 계정 잠금 해제: 실패 횟수 초기화 + 잠금 플래그 해제 (비밀번호 초기화 / 관리자 해제용) -->
+    <update id="unlockAccount">
+        UPDATE utb_login_info
+        SET login_fail_count = '0',
+            login_lock_yn = 'N',
+            update_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 전화번호 중복 확인 -->
+    <select id="existsByMobileNo" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM utb_user_info
+            WHERE user_mobile_no = #{mobileNo}
+              AND del_yn = 'N'
+        )
+    </select>
+
+    <!-- userMstSeq로 사용자 검색 (소셜 연동 로그인용) -->
+    <select id="findByUserMstSeq" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT L.user_mst_seq, L.user_id, L.user_password, L.login_lock_yn, L.del_yn,
+               L.login_fail_count, L.office_seq,
+               I.user_info_seq, I.user_name_ko, I.user_email, I.user_mobile_no
+        FROM utb_login_info L
+        INNER JOIN utb_user_info I ON L.user_mst_seq = I.user_mst_seq
+        WHERE L.user_mst_seq = #{userMstSeq}
+          AND L.del_yn = 'N'
+        LIMIT 1
+    </select>
+
+<!--발명자 고안자 -->
+    <select id="selectInventorList" resultType="kr.co.mindpro.ipms.domain.user.vo.UserInfoVO">
+        SELECT
+            u.user_info_seq    AS "userInfoSeq",
+            u.office_seq       AS "officeSeq",
+            i.tbl_seq          AS "tblSeq",
+            u.user_name_ko     AS "userNameKo",
+            u.user_name_en     AS "userNameEn",
+            u.user_name_zh     AS "userNameZh",
+            u.user_name_ja     AS "userNameJa",
+            u.resident_no      AS "residentNo",
+            u.user_addr        AS "userAddr",
+            i.app_inventor_seq AS "appInventorSeq",
+            i.sort             AS "sort",
+            i.note             AS "note"
+        FROM utb_app_inventor i
+                 INNER JOIN utb_user_info u ON i.user_info_seq = u.user_info_seq AND i.office_seq = u.office_seq
+        WHERE i.tbl_seq = #{tblSeq}
+          AND i.office_seq = #{officeSeq}
+          AND i.del_yn = 'N'
+        ORDER BY i.sort ASC
+    </select>
+
+    <select id="selectInventorListCount" resultType="int">
+        SELECT COUNT(*)
+        FROM utb_app_inventor
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="selectInventorDetail" resultType="kr.co.mindpro.ipms.domain.user.vo.UserInfoVO">
+        SELECT
+            u.user_info_seq    AS "userInfoSeq",
+            u.office_seq       AS "officeSeq",
+            u.user_name_ko     AS "userNameKo",
+            u.user_name_en     AS "userNameEn",
+            u.user_name_zh     AS "userNameZh",
+            u.user_name_ja     AS "userNameJa",
+            u.user_addr        AS "userAddr",
+            u.user_addr_en     AS "userAddrEn",
+            u.user_addr_zh     AS "userAddrZh",
+            u.user_addr_ja     AS "userAddrJa",
+            u.resident_no      AS "residentNo",
+            u.country_code     AS "countryCode",
+            u.note             AS "note",
+            i.app_inventor_seq AS "appInventorSeq",
+            i.tbl_seq          AS "tblSeq",
+            i.sort             AS "sort",
+            i.note             AS "Note"
+        FROM utb_user_info u
+                 INNER JOIN utb_app_inventor i ON u.user_info_seq = i.user_info_seq AND u.office_seq = i.office_seq
+        WHERE i.app_inventor_seq = #{appInventorSeq}
+          AND u.office_seq = #{officeSeq}
+          AND i.del_yn = 'N'
+    </select>
+
+    <insert id="insertInventorUserInfo" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserInfoVO">
+        <selectKey keyProperty="userInfoSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_user_info')
+        </selectKey>
+        INSERT INTO utb_user_info (
+        user_info_seq, office_seq,
+        user_name_ko, user_name_en, user_name_zh, user_name_ja,
+        user_addr, user_addr_en, user_addr_zh, user_addr_ja,
+        resident_no, country_code, note,
+        create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+        #{userInfoSeq}, #{officeSeq},
+        #{userNameKo}, #{userNameEn}, #{userNameZh}, #{userNameJa},
+        #{userAddr}, #{userAddrEn}, #{userAddrZh}, #{userAddrJa},
+        #{residentNo}, #{countryCode}, #{note},
+        #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <update id="updateInventorUserInfo" parameterType="kr.co.mindpro.ipms.domain.user.vo.UserInfoVO">
+        UPDATE utb_user_info
+        SET user_name_ko = #{userNameKo},
+            user_name_en = #{userNameEn},
+            user_name_zh = #{userNameZh},
+            user_name_ja = #{userNameJa},
+            user_addr = #{userAddr},
+            user_addr_en = #{userAddrEn},
+            user_addr_zh = #{userAddrZh},
+            user_addr_ja = #{userAddrJa},
+            resident_no = #{residentNo},
+            country_code = #{countryCode},
+            note = #{note},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE user_info_seq = #{userInfoSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <select id="selectAppInventorMappingCount" parameterType="kr.co.mindpro.ipms.domain.user.vo.AppInventorVO" resultType="int">
+        SELECT COUNT(*)
+        FROM utb_app_inventor
+        WHERE tbl_seq = #{tblSeq}
+          AND user_info_seq = #{userInfoSeq}
+          AND office_seq = #{officeSeq}
+    </select>
+
+    <insert id="insertAppInventor" parameterType="kr.co.mindpro.ipms.domain.user.vo.AppInventorVO">
+        <selectKey keyProperty="appInventorSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_app_inventor')
+        </selectKey>
+        INSERT INTO utb_app_inventor (
+        app_inventor_seq, office_seq, tbl_seq, user_info_seq,
+        sort, note,
+        create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+        #{appInventorSeq}, #{officeSeq}, #{tblSeq}, #{userInfoSeq},
+        #{sort}, #{note},
+        #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <update id="updateAppInventor" parameterType="kr.co.mindpro.ipms.domain.user.vo.AppInventorVO">
+        UPDATE utb_app_inventor
+        SET sort = #{sort},
+            note = #{note},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP,
+            del_yn = 'N'
+        WHERE tbl_seq = #{tblSeq}
+          AND user_info_seq = #{userInfoSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+
+</mapper>

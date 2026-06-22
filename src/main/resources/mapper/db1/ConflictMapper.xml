@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.conflict.repository.db1.ConflictMapper">
+
+
+    <select id="ConflictTotalCount" resultType="int">
+        SELECT COUNT(*)
+        FROM "MP_IPMS_PA".utb_progress a
+        WHERE a.office_seq = #{officeSeq}
+      AND a.tbl_seq = #{conflictSeq}
+          AND a.del_yn = 'N'
+    </select>
+
+
+    <insert id="insertConflictMst" parameterType="ConflictMstVO">
+        <selectKey keyProperty="conflictSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_conflict_mst')
+        </selectKey>
+        INSERT INTO utb_conflict_mst (
+        conflict_seq,
+        office_seq,
+        app_seq,
+        litigation_case_no,
+        court_category_code,
+        case_title_ko,
+        case_category_code,
+        status,
+        petitioner_type,
+        petitioner_memo,
+        respondent_type,
+        respondent_memo,
+        pre_exam_result,
+        final_result,
+        decision_content,
+        appeal_content,
+        agent_category_code,
+        case_type_code,
+        abandon_yn,
+        abandon_content,
+        dept_name,
+        etc_yn,
+        asset_no,
+        agent_ref,
+        introducer,
+        respondent_name,
+        case_classification,
+        note, 
+        foreign_agent,
+        client,
+        del_yn, create_user, create_at
+        ) VALUES (
+        #{conflictSeq},
+        #{officeSeq},
+        #{appSeq},
+        #{litigationCaseNo},
+        #{courtCategoryCode},
+        #{caseTitleKo},
+        #{appClassificationCode},
+        #{status},
+        #{petitionerType},
+        #{petitionerMemo},
+        #{respondentType},
+        #{respondentMemo},
+        #{preExamResult},
+        #{finalResult},
+        #{decisionContent},
+        #{appealContent},
+        #{agentCategoryCode},
+        #{caseTypeCode},
+        #{abandonYn},
+        #{abandonContent},
+        #{deptName},
+        #{etcYn},
+        #{ourRef},
+        #{yourRef},
+        #{introducer},
+        #{respondent},
+        CASE
+            WHEN #{etcYn} = 'N' THEN '40'
+            WHEN #{etcYn} = 'Y' THEN '50'
+            ELSE '00'
+        END,
+        #{note},
+        #{foreignAgent},
+        #{client},
+        'N',
+        #{createUser},
+        NOW()
+        )
+    </insert>
+
+    <update id="updateConflictMst" parameterType="ConflictMstVO">
+        UPDATE utb_conflict_mst
+        SET
+            app_seq             = #{appSeq},
+            litigation_case_no  = #{litigationCaseNo},
+            court_category_code = #{courtCategoryCode},
+            case_title_ko       = #{caseTitleKo},
+            case_category_code  = #{appClassificationCode},
+            status              = #{status},
+            petitioner_type     = #{petitionerType},
+            petitioner_memo     = #{petitionerMemo},
+            respondent_type     = #{respondentType},
+            respondent_memo     = #{respondentMemo},
+            pre_exam_result     = #{preExamResult},
+            final_result        = #{finalResult},
+            decision_content    = #{decisionContent},
+            appeal_content      = #{appealContent},
+            agent_category_code = #{agentCategoryCode},
+            case_type_code      = #{caseTypeCode},
+            abandon_yn          = #{abandonYn},
+            abandon_content     = #{abandonContent},
+            dept_name           = #{deptName},
+            etc_yn              = #{etcYn},
+            asset_no            = #{ourRef},
+            agent_ref           = #{yourRef},
+            introducer          = #{introducer},
+            respondent_name     = #{respondent},
+            note                = #{note},
+            foreign_agent       = #{foreignAgent},
+            client              = #{client},
+            update_user         = #{updateUser},
+            update_at           = NOW()
+        WHERE
+            conflict_seq = #{conflictSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+
+    <select id="findConflictBySeq" resultType="kr.co.mindpro.ipms.domain.conflict.vo.ConflictMergeVO">
+        SELECT
+            /* [1. 심판/분쟁 마스터 (기본 컬럼명 유지)] */
+            c.conflict_seq,
+            c.office_seq,
+            c.app_seq,
+            c.litigation_case_no,
+            c.asset_no              AS ourRef,
+            c.agent_ref             AS yourRef,
+            c.case_title_ko,
+            -- 계류법정
+            c.court_category_code,
+            fn_get_cd_nm('COURT_TYPE', c.court_category_code) AS court_category_code_name,
+            c.case_category_code                            AS appClassificationCode,
+            fn_get_cd_nm('NAT_IO_DIV', c.case_category_code) AS appClassificationCodeName,
+            -- 대리인구분
+            c.agent_category_code,
+            fn_get_cd_nm('AGENT_TYPE', c.agent_category_code) AS agent_category_code_name,
+            -- 사건종류구분
+            c.case_type_code,
+            fn_get_cd_nm('CASE_TYPE_TRIAL', c.case_type_code) AS case_type_code_name,
+            -- 진행상태
+            c.status,
+            fn_get_cd_nm('STATUS', c.status) AS statusCodeName,
+            c.litigation_case_no                 AS caseNo,
+            c.respondent_name                    AS respondent,
+            c.petitioner_type,
+            c.petitioner_memo,
+            c.respondent_type,
+            c.respondent_memo,
+            c.respondent_name           AS respondent,
+            c.pre_exam_result,
+            c.final_result,
+            c.decision_content,
+            c.appeal_content,
+            c.abandon_yn    AS  isAbandoned ,
+            c.abandon_content,
+            c.dept_name,
+            c.introducer,
+            c.note,
+            c.del_yn,
+            c.create_user,
+            to_char(c.create_at, 'YYYYMMDD') AS create_at,
+            to_char(c_due."claimDate", 'YYYYMMDD') AS claimDate,
+            to_char(c_due."preExamDate", 'YYYYMMDD') AS preExamDate,
+            to_char(c_due."amendLimitDate", 'YYYYMMDD') AS amendLimitDate,
+            to_char(c_due."amendSubmitDate", 'YYYYMMDD') AS amendSubmitDate,
+            to_char(c_due."judgmentServedDate", 'YYYYMMDD') AS judgmentServedDate,
+            to_char(c_due."appealLimitDate", 'YYYYMMDD') AS appealLimitDate,
+            to_char(c_due."appealDate", 'YYYYMMDD') AS appealDate,
+            to_char(c_due."abandonInstructDate", 'YYYYMMDD') AS abandonInstructDate,
+            to_char(c_due."abandonDate", 'YYYYMMDD') AS abandonDate,
+
+
+            /* [2. 출원 마스터 정보] */
+            app.app_no,
+            app.reg_no,
+            app.country_code,
+            app.domestic_reg_no,
+            fn_get_ctry_nm(app.country_code, 'C', 'KO') AS country_code_name,
+            --app.app_classification                      AS caseTypeCode,
+            --fn_get_cd_nm('NAT_IO_DIV', app.app_classification ) AS caseTypeCodeName,
+            app.product_class                   AS  goodsClass,
+--             app.app_country,
+            app.right_category      AS rightTypeCode,
+            fn_get_cd_nm('PAT_TYPE', app.right_category ) AS rightTypeCodeName,
+            app.retain_seq                                AS clientRef,
+            app.app_name_ko         AS titleKo,
+            app.app_name_en         AS titleEn,
+            /* [3. 심판 단계 날짜 및 관계자 (c.conflict_seq 기준)] */
+            to_char(c_due."receiptDate", 'YYYYMMDD')      AS receiptDate,
+            to_char(c_due."dueLimitDate", 'YYYYMMDD')     AS dueLimitDate,
+            to_char(c_due."judgmentDate", 'YYYYMMDD')     AS judgmentDate,
+             to_char(c_due."processDate", 'YYYYMMDD')     AS processDate,
+--             to_char(c_due."deadlineDate", 'YYYYMMDD')     AS deadlineDate,
+            to_char(a_due."abandonDate", 'YYYYMMDD')     AS abandonDate,
+
+            COALESCE(
+                c.client,
+                c_pp."client_NM",
+                (SELECT COALESCE(NULLIF(client_name_ko, ''), company_name)
+                   FROM "MP_IPMS_PA".utb_customer
+                  WHERE customer_seq = c_pp."client" AND del_yn = 'N')
+            )                                              AS clientName,
+            c_pp."client"                                  AS client,
+            c_pp."petitioner"                             AS petitioner,
+            c_pp."petitioner_NM"                          AS petitionerName,
+--             c_pp."respondent"                             AS respondent,
+--             c_pp."respondent_NM"                          AS respondentName,
+            c_pp."adminMgr"                               AS adminMgr,
+            c_pp."adminMgr_NM"                            AS adminMgrName,
+            c_pp."caseMgr"                                AS caseMgr,
+            c_pp."caseMgr_NM"                             AS caseMgrName,
+            c_pp."attorney"                               AS attorney,
+            c_pp."attorney_NM"                            AS attorneyName,
+            COALESCE(
+                c.foreign_agent,
+                c_pp."foreignAgent_NM",
+                (SELECT COALESCE(NULLIF(client_name_ko, ''), company_name)
+                   FROM "MP_IPMS_PA".utb_customer
+                  WHERE customer_seq = c_pp."foreignAgent" AND del_yn = 'N')
+            )                                              AS foreignAgentName,
+            c_pp."foreignAgent"                            AS foreignAgent,
+
+            /* [4. 출원 단계 날짜 및 관계자 (app.app_seq 기준)] */
+            to_char(a_due."appDate", 'YYYYMMDD')          AS appDate,
+            to_char(a_due."announcementDate", 'YYYYMMDD') AS announcementDate,
+            to_char(a_due."regDate", 'YYYYMMDD')          AS regDate,
+            to_char(a_due."regDecisionDate", 'YYYYMMDD')  AS domesticRegDecisionDate,
+            to_char(a_due."domesticRegDate", 'YYYYMMDD')  AS domesticRegDate,
+            to_char(a_due."intlPubDate", 'YYYYMMDD')      AS intlRegDate,
+
+            a_pp."applicant"                           AS applicant,
+            COALESCE(
+                a_pp."applicant_NM",
+                (SELECT COALESCE(NULLIF(client_name_ko, ''), company_name)
+                   FROM "MP_IPMS_PA".utb_customer
+                  WHERE customer_seq = a_pp."applicant" AND del_yn = 'N')
+            )                                              AS applicantName,
+            a_pp."inventor"                            AS inventor,
+            COALESCE(
+                a_pp."inventor_NM",
+                (SELECT COALESCE(NULLIF(client_name_ko, ''), company_name)
+                   FROM "MP_IPMS_PA".utb_customer
+                  WHERE customer_seq = a_pp."inventor" AND del_yn = 'N')
+            )                                              AS inventorName
+
+        FROM "MP_IPMS_PA".utb_conflict_mst c
+                 /* 출원 마스터 조인 */
+                 LEFT JOIN "MP_IPMS_PA".utb_app_mst app
+                           ON c.app_seq = app.app_seq AND c.office_seq = app.office_seq
+
+            /* --- 심판(Conflict)용 뷰 조인 --- */
+                 LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot c_due
+                           ON c.conflict_seq = c_due.tbl_seq AND c.office_seq = c_due.office_seq
+                 LEFT JOIN "MP_IPMS_PA".v_participant_pivot c_pp
+                           ON c.conflict_seq = c_pp.tbl_seq AND c.office_seq = c_pp.office_seq
+
+            /* --- 출원(App)용 뷰 조인 --- */
+                 LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot a_due
+                           ON app.app_seq = a_due.tbl_seq AND app.office_seq = a_due.office_seq
+                 LEFT JOIN "MP_IPMS_PA".v_participant_pivot a_pp
+                           ON app.app_seq = a_pp.tbl_seq AND app.office_seq = a_pp.office_seq
+
+        WHERE c.conflict_seq = #{conflictSeq}
+          AND c.office_seq = #{officeSeq}
+          AND c.del_yn = 'N'
+    </select>
+
+
+    <select id="findConflictMstList" parameterType="String" resultType="kr.co.mindpro.ipms.domain.conflict.vo.ConflictMergeVO">
+        SELECT
+            /* 출원 마스터 정보 조인 */
+            mst.asset_no as ourRef,
+            mst.agent_ref as yourRef,
+            fn_get_participant_name(mst.office_seq, mst.conflict_seq, 'clientName') AS clientName,
+            app.domestic_reg_no as domesticRegNo,
+
+            /* 분쟁 마스터 정보  */
+            mst.conflict_seq,
+            mst.office_seq,
+            mst.app_seq,
+            mst.litigation_case_no as caseNo,
+            mst.court_category_code,
+            fn_get_cd_nm('COURT_TYPE', mst.court_category_code) AS courtCategoryCodeName,
+            c.case_category_code,
+            fn_get_cd_nm('NAT_IO_DIV', c.case_category_code) AS case_category_code_name,
+            mst.case_type_code,
+            fn_get_cd_nm('CASE_TYPE_TRIAL', mst.case_type_code) AS caseTypeCodeName,
+            mst.agent_category_code,
+            fn_get_cd_nm('AGENT_TYPE', mst.agent_category_code) AS agentCategoryCodeName,
+            mst.status,
+            fn_get_cd_nm('STATUS', status) AS statusCodeName,
+            mst.petitioner_type,
+            mst.petitioner_memo,
+            mst.respondent_type,
+            mst.respondent_memo,
+            mst.pre_exam_result,
+            mst.final_result,
+            mst.decision_content,
+            mst.appeal_content,
+            mst.abandon_yn as isAbandoned,
+            mst.abandon_content,
+            mst.note,
+            mst.case_title_ko,
+            mst.del_yn,
+            mst.create_user,
+            mst.create_at,
+            mst.update_user,
+            mst.update_at
+        FROM utb_conflict_mst mst
+                 LEFT JOIN utb_app_mst app ON mst.app_seq = app.app_seq AND mst.office_seq = app.office_seq
+        WHERE mst.office_seq = #{officeSeq}
+          AND mst.etc_yn = #{etcYn}
+          AND mst.del_yn = 'N'
+          AND (app.del_yn = 'N' OR app.del_yn IS NULL)
+        ORDER BY mst.create_at DESC
+    </select>
+
+
+
+    <select id="selectSearchConflictList"
+            parameterType="kr.co.mindpro.ipms.domain.searchcondition.vo.SearchQueryParamVO"
+            resultType="kr.co.mindpro.ipms.domain.conflict.vo.ConflictMergeVO">
+        SELECT * FROM (
+        SELECT
+        /* [1. 마스터 정보 (utb_conflict_mst)] */
+        c.conflict_seq          AS "conflictSeq",
+        c.office_seq            AS "officeSeq",
+        c.app_seq               AS "appSeq",
+        c.asset_no              AS "ourRef",
+        c.agent_ref             AS "yourRef",
+        c.litigation_case_no    AS "caseNo",
+        c.case_title_ko         AS "caseTitleKo",
+        c.status                AS "statusCode",
+        fn_get_cd_nm('STATUS', c.status) AS "statusCodeName",
+        c.case_type_code        AS "caseTypeCode",
+        fn_get_cd_nm('CASE_TYPE_TRIAL', c.case_type_code) AS "caseTypeCodeName",
+        c.court_category_code   AS "courtCategoryCode",
+        fn_get_cd_nm('COURT_TYPE', c.court_category_code) AS "courtCategoryCodeName",
+        c.agent_category_code   AS "agentCategoryCode",
+        fn_get_cd_nm('AGENT_TYPE', c.agent_category_code) AS "agentCategoryCodeName",
+        c.decision_content      AS "decisionContent",
+        c.decision_content      AS "judgmentResult",
+        c.abandon_content       AS "abandonContent",
+        c.abandon_content       AS "abandonNote",
+        c.abandon_yn            AS "isAbandoned",
+        c.dept_name             AS "deptName",
+        c.note                  AS "note",
+        c.note                  AS "memo",
+        c.respondent_name       AS "respondent",
+        c.final_result          AS "finalResult",
+        c.create_at             AS "createAt", /* 정렬용 */
+        c.create_user             AS "createUser", /* 정렬용 */
+        c.update_user             AS "updateUser", /* 정렬용 */
+        c.etc_yn                 AS "etcYn",
+        /* [2. 출원 정보 (utb_app_mst)] */
+        app.app_no              AS "appNo",
+        app.reg_no              AS "regNo",
+        app.main_drawing_file   AS "citedTrademarkImage",
+        app.app_name_ko         AS "titleKo",
+        app.app_name_en         AS "titleEn",
+        app.country_code        AS "countryCode",
+        fn_get_ctry_nm(app.country_code, 'C', 'KO') AS "countryCodeName",
+        app.app_classification  AS "appClassificationCode",
+        fn_get_cd_nm('NAT_IO_DIV', app.app_classification) AS "appClassificationCodeName",
+        app.right_category      AS "rightTypeCode",
+        fn_get_cd_nm('PAT_TYPE', app.right_category) AS "rightTypeCodeName",
+
+        /* [3. 날짜 정보 (이의심판 기일 - due)] */
+        to_char(due."receiptDate", 'YYYYMMDD')      AS "receiptDate",
+        to_char(due."dueLimitDate", 'YYYYMMDD')     AS "dueLimitDate",
+        to_char(due."dueLimitDate", 'YYYYMMDD')     AS "caseCloseDate", /* 사건마감일 */
+        to_char(due."dueLimitDate", 'YYYYMMDD')     AS "processLimitDate", /* 처리마감일 */
+        to_char(due."claimDate", 'YYYYMMDD')        AS "claimDate",
+        to_char(due."judgmentDate", 'YYYYMMDD')     AS "judgmentDate",
+        to_char(due."judgmentDate", 'YYYYMMDD')     AS "finishAt", /* 진행완료일 */
+        to_char(due."appealLimitDate", 'YYYYMMDD')  AS "appealLimitDate",
+        to_char(due."appealDate", 'YYYYMMDD')       AS "appealDate",
+        to_char(due."abandonDate", 'YYYYMMDD')      AS "abandonDate",
+        to_char(due."processDate", 'YYYYMMDD')      AS "processDate",
+        to_char(due."processDate", 'YYYYMMDD')      AS "completeDate", /* 완료일 */
+        to_char(due."processDate", 'YYYYMMDD')      AS "completeAt",
+        to_char(due."processDate", 'YYYYMMDD')      AS "hdrDate", /* HDR처리일 */
+
+        /* [4. 날짜 정보 (원출원 기일 - appdue)] */
+        to_char(appdue."appDate", 'YYYYMMDD')       AS "appDate",
+        to_char(appdue."regDate", 'YYYYMMDD')       AS "regDate",
+
+        /* [5. 관계자 정보 (피벗 뷰 - pp)] */
+        pp."client"             AS "client",
+        COALESCE(
+            pp."client_NM",
+            (SELECT COALESCE(NULLIF(client_name_ko, ''), company_name)
+               FROM "MP_IPMS_PA".utb_customer
+              WHERE customer_seq = pp."client" AND del_yn = 'N')
+        )                       AS "clientName",
+        pp."foreignAgent"       AS "foreignAgent",
+        COALESCE(
+            pp."foreignAgent_NM",
+            (SELECT COALESCE(NULLIF(client_name_ko, ''), company_name)
+               FROM "MP_IPMS_PA".utb_customer
+              WHERE customer_seq = pp."foreignAgent" AND del_yn = 'N')
+        )                       AS "foreignAgentName",
+        pp."petitioner"         AS "petitioner",
+        pp."petitioner_NM"      AS "petitionerName",
+        pp."adminMgr"           AS "adminMgr",
+        pp."adminMgr_NM"        AS "adminMgrName",
+        pp."caseMgr"            AS "caseMgr",
+        pp."caseMgr_NM"         AS "caseMgrName",
+        pp."attorney"           AS "attorney",
+        pp."attorney_NM"        AS "attorneyName",
+
+        /* [6. 진행 정보 (기타사건용)] */
+        prg.receipt_doc_name    AS "receiptDocName",
+        prg.receipt_doc_content AS "receiptDocContent",
+        prg.instruction_content AS "instructionContent",
+        prg.instruction_content AS "orderContent",
+        prg.submit_doc_name     AS "submitDocName",
+        prg.submit_doc_name     AS "submitDoc",
+        pp_prg."submitManager_NM" AS "submitManagerName",
+        pp_prg."submitManager_NM" AS "submitMgrName"
+        FROM "MP_IPMS_PA".utb_conflict_mst c
+        LEFT JOIN "MP_IPMS_PA".utb_app_mst app ON c.app_seq = app.app_seq AND c.office_seq = app.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot due ON c.conflict_seq = due.tbl_seq AND c.office_seq = due.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp ON c.conflict_seq = pp.tbl_seq AND c.office_seq = pp.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot appdue ON c.app_seq = appdue.tbl_seq AND c.office_seq = appdue.office_seq
+        /* 최신 진행 정보 조인 */
+        LEFT JOIN (
+            SELECT *, ROW_NUMBER() OVER(PARTITION BY tbl_seq ORDER BY create_at DESC) as rn
+            FROM "MP_IPMS_PA".utb_progress
+            WHERE del_yn = 'N'
+        ) prg ON c.conflict_seq = prg.tbl_seq AND prg.rn = 1
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp_prg ON prg.progress_seq = pp_prg.tbl_seq AND prg.office_seq = pp_prg.office_seq
+        WHERE c.office_seq = #{request.officeSeq}
+        AND c.del_yn = 'N'
+        ) T
+        <where>
+            <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+        </where>
+        ORDER BY T."createAt" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+
+
+
+<!--   원심하급심 -->
+
+    <insert id="insertConflictResult" parameterType="kr.co.mindpro.ipms.domain.conflict.vo.ConflictResultMstVO">
+        <selectKey keyProperty="conflictResultSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_conflict_result')
+        </selectKey>
+
+        INSERT INTO utb_conflict_result (
+        conflict_result_seq,
+        conflict_seq,
+        office_seq,
+        judgment_content,
+        judgment_case_no,
+        judgment_search_url,
+        judgment_category_code,
+        note,
+        create_user,
+        create_at,
+        del_yn
+        ) VALUES (
+        #{conflictResultSeq},
+        #{conflictSeq},
+        #{officeSeq},
+        #{judgmentContent},
+        #{judgmentCaseNo},
+        #{judgmentSearchUrl},
+        #{judgmentCategoryCode},
+        #{note},
+        #{createUser},
+        NOW(),
+        'N'
+        )
+    </insert>
+
+    <delete id="deleteConflictResultByConflictSeq" parameterType="map">
+        DELETE FROM utb_conflict_result
+        WHERE conflict_seq = #{conflictSeq}
+          AND office_seq   = #{officeSeq}
+    </delete>
+
+    <!--
+        이의심판 화면에서 권리/출원인관리번호 만 부분 수정.
+        utb_conflict_mst 에는 해당 컬럼이 없어 utb_app_mst 에 직접 반영해야
+        등록 시(신규 출원 케이스)와 수정 시 동작이 일관됨.
+    -->
+    <update id="updateAppRightAndClientRef" parameterType="map">
+        UPDATE utb_app_mst
+        SET right_category = #{rightTypeCode},
+            retain_seq     = #{clientRef},
+            update_user    = #{updateUser},
+            update_at      = NOW()
+        WHERE office_seq = #{officeSeq}
+          AND app_seq    = #{appSeq}
+          AND del_yn     = 'N'
+    </update>
+
+    <select id="selectConflictResultList" parameterType="map" resultType="kr.co.mindpro.ipms.domain.conflict.vo.ConflictResultMstVO">
+        SELECT
+            res.conflict_seq                                            AS conflictSeq,
+            res.judgment_case_no                                        AS judgmentCaseNo,
+            res.judgment_content                                        AS judgmentContent,
+            res.judgment_search_url                                     AS judgmentSearchUrl,
+            /* CodeInfo 구성을 위한 코드와 명칭 */
+            res.judgment_category_code                                  AS judgmentCategoryCode,
+             fn_get_cd_nm('JUDG_CAT', res.judgment_category_code)        AS judgmentCategoryName,
+            res.note                                                    AS note,
+            /* 날짜 포맷팅 */
+            fn_get_duedate_str(res.office_seq, res.conflict_result_seq, 'resultDecisionDate') AS resultDecisionDate
+        FROM utb_conflict_result res
+        WHERE res.conflict_seq = #{conflictSeq}
+          AND res.office_seq = #{officeSeq}
+          AND res.del_yn = 'N'
+    </select>
+
+
+    <select id="selectConflictResultDetail" parameterType="map" resultType="kr.co.mindpro.ipms.domain.conflict.vo.ConflictResultViewVO">
+        SELECT
+            mst.conflict_seq,
+            mst.office_seq,
+            mst.conflict_result_seq,
+            mst.judgment_content,
+            mst.judgment_search_url,
+            mst.note
+        FROM utb_conflict_mst mst
+        WHERE mst.conflict_seq = #{conflictSeq}
+          AND mst.office_seq = #{officeSeq}
+          AND mst.del_yn = 'N'
+    </select>
+
+    <update id="softDeleteConflictFileByFileSeq" parameterType="map">
+        UPDATE utb_file_mapp
+        SET del_yn = 'Y',
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND file_seq = #{fileSeq}
+          AND del_yn = 'N'
+    </update>
+
+</mapper>

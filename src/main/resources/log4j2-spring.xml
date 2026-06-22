@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Properties>
+        <!-- 로그 저장 경로 및 패턴 정의 -->
+        <Property name="LOG_PATH">./logs</Property>
+        <Property name="LOG_FORMAT">%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{%-5p} [%t] %cyan{%c{1.}}: %m%n</Property>
+    </Properties>
+
+    <Appenders>
+        <!-- 1. 콘솔 출력 설정 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_FORMAT}" charset="UTF-8"/>
+        </Console>
+
+        <!-- 2. 파일 출력 설정 (날짜별/용량별 아카이빙) -->
+        <RollingFile name="File" fileName="${LOG_PATH}/ipms-restapi.log"
+                     filePattern="${LOG_PATH}/archive/ipms-restapi-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_FORMAT}" charset="UTF-8"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+    		<!-- 3. Spring 트랜잭션 로그 설정 (Rolling back... 로그 출력용) -->
+        <Logger name="org.springframework.transaction" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        
+        <!-- 4. JDBC 데이터소스 로그 설정 (트랜잭션 커밋/롤백 상세 로그) -->
+        <Logger name="org.springframework.jdbc.datasource" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        
+        <!-- 5. Log4jdbc SQL 로그 설정 (MyBatis 쿼리 정렬 출력) -->
+        <!-- SQL문만 출력 -->
+        <Logger name="jdbc.sqlonly" level="OFF" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        <!-- ResultSet 결과 테이블 출력 -->
+        <Logger name="jdbc.resultsettable" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        <!-- 연결/실행 관련 정보 제외 (필요 시 INFO로 변경) -->
+        <Logger name="jdbc.audit" level="OFF"/>
+        <Logger name="jdbc.resultset" level="OFF"/>
+        <Logger name="jdbc.connection" level="OFF"/>
+
+        <!-- 6. 프로젝트 패키지 로그 레벨 (com.mindpro.ipms) -->
+        <AsyncLogger name="kr.co.mindpro.ipms" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </AsyncLogger>
+
+        <!-- 5. 기본 루트 로그 레벨 -->
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Root>
+    </Loggers>
+</Configuration>

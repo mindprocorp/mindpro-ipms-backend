@@ -1,0 +1,2099 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.patentApp.overseaApp.repository.db1.OverseaAppMapper">
+
+    <insert id="insertOverseaBasicApp" parameterType="kr.co.mindpro.ipms.domain.patentApp.appCommon.vo.CommonAppVO">
+        <selectKey keyProperty="appExtSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_app_ext_mst') AS appExtSeq
+        </selectKey>
+
+        INSERT INTO utb_app_ext_mst (
+            office_seq
+            , app_ext_seq
+            , right_category
+            , app_kind
+            , asset_no
+            , case_code
+            , dept_code
+            , app_name_ko
+            , app_name_en
+            , product_class
+            , individual_country_cnt
+            , individual_country_content
+            , pct_cnt
+            , pct_content
+            , ep_cnt
+            , ep_content
+            , madrid_cnt
+            , madrid_content
+            , international_design_cnt
+            , international_design_content
+            , grade
+            , independent_claim_cnt
+            , dependent_claim_cnt
+            , spec_cnt
+            , drawing_cnt
+            , global_app_no
+            , representative_file_seq
+            , give_up_content
+            , case_classification
+            , create_user
+            , create_at
+            , del_yn
+            , note
+        ) VALUES (
+            #{officeSeq}
+            , #{appExtSeq}
+            , #{rightTypeCode}
+            , #{appTypeCode}
+            , #{ourRef}
+            , #{caseNo}
+            , #{deptName}
+            , #{titleKo}
+            , #{titleEn}
+            , #{goodsClass}
+            , #{individualCountryCnt}
+            , #{designatedIndividual}
+            , #{pctCnt}
+            , #{designatedPct}
+            , #{epCnt}
+            , #{designatedEp}
+            , #{madridCnt}
+            , #{designatedMadrid}
+            , #{internationalDesignCnt}
+            , #{designatedIntlDesign}
+            , #{gradeCode}
+            , #{independentClaims}
+            , #{dependentClaims}
+            , #{overseaSpecPage}
+            , #{drawingCount}
+            , #{globalAppNo}
+            , #{representativeFileSeq}
+            , #{abandonNote}
+            , '20'
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , 'N'
+            , #{note}
+        )
+    </insert>
+
+    <update id="updateBasicApp" parameterType="kr.co.mindpro.ipms.domain.patentApp.appCommon.vo.CommonAppVO">
+        UPDATE utb_app_ext_mst
+        SET app_kind = #{appTypeCode}
+          , asset_no = #{ourRef}
+          , case_code = #{caseNo}
+          , dept_code = #{deptName}
+          , app_name_ko = #{titleKo}
+          , app_name_en = #{titleEn}
+          , product_class = #{goodsClass}
+          , individual_country_cnt = #{individualCountryCnt}
+          , individual_country_content = #{designatedIndividual}
+          , pct_cnt = #{pctCnt}
+          , pct_content = #{designatedPct}
+          , ep_cnt = #{epCnt}
+          , ep_content = #{designatedEp}
+          , madrid_cnt = #{madridCnt}
+          , madrid_content = #{designatedMadrid}
+          , international_design_cnt = #{internationalDesignCnt}
+          , international_design_content = #{designatedIntlDesign}
+          , grade = #{gradeCode}
+          , independent_claim_cnt = #{independentClaims}
+          , dependent_claim_cnt = #{dependentClaims}
+          , spec_cnt = #{overseaSpecPage}
+          , drawing_cnt = #{drawingCount}
+          , global_app_no = #{globalAppNo}
+          , representative_file_seq = #{representativeFileSeq}
+          , give_up_content = #{abandonNote}
+          , update_user = #{updateUser}
+          , update_at = CURRENT_TIMESTAMP
+          , note = #{note}
+        WHERE office_seq = #{officeSeq}
+          AND app_ext_seq = #{appExtSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <select id="getOverseaBasicDetail" resultType="kr.co.mindpro.ipms.domain.patentApp.appCommon.vo.CommonAppVO">
+        SELECT emst.office_seq AS "officeSeq"
+             , emst.app_ext_seq AS "appExtSeq"
+             , emst.right_category AS "rightTypeCode"
+             , fn_get_cd_nm('PAT_TYPE', emst.right_category) AS "rightTypeName"
+             , emst.app_kind AS "appTypeCode"
+             , fn_get_cd_nm('APP_TYPE_CD', emst.app_kind) AS "appTypeName"
+             , emst.asset_no AS "ourRef"
+             , emst.case_code AS "caseNo"
+             , emst.dept_code AS "deptName"
+             , emst.app_name_ko AS "titleKo"
+             , emst.app_name_en AS "titleEn"
+             , emst.product_class AS "goodsClass"
+             , emst.individual_country_cnt AS "individualCountryCnt"
+             , emst.individual_country_content AS "designatedIndividual"
+             , emst.pct_cnt AS "pctCnt"
+             , emst.pct_content AS "designatedPct"
+             , emst.ep_cnt AS "epCnt"
+             , emst.ep_content AS "designatedEp"
+             , emst.madrid_cnt AS "madridCnt"
+             , emst.madrid_content AS "designatedMadrid"
+             , emst.international_design_cnt AS "internationalDesignCnt"
+             , emst.international_design_content AS "designatedIntlDesign"
+             , emst.grade AS "gradeCode"
+             , fn_get_cd_nm('IP_GRADE_CD', emst.grade) AS "gradeName"
+             , emst.independent_claim_cnt AS "independentClaims"
+             , emst.dependent_claim_cnt AS "dependentClaims"
+             , emst.spec_cnt AS "overseaSpecPage"
+             , emst.drawing_cnt AS "drawingCount"
+             , emst.global_app_no AS "globalAppNo"
+             , emst.representative_file_seq AS "representativeFileSeq"
+             , emst.give_up_content AS "abandonNote"
+             , emst.create_user AS "createUser"
+             , emst.create_at AS "createAt"
+             , emst.update_user AS "updateUser"
+             , emst.update_at AS "updateAt"
+             , emst.del_yn AS "delYn"
+             , emst.note AS "note"
+             , vpp."adminMgr"
+             , vpp."adminMgr_NM" AS "adminMgrNm"
+             , vpp.applicant
+             , vpp."applicant_NM" AS "applicantNm"
+             , vpp."appManager"
+             , vpp."appManager_NM" AS "appManagerNm"
+             , vpp.attorney
+             , vpp."attorney_NM" AS "attorneyNm"
+             , vpp."caseMgr"
+             , vpp."caseMgr_NM" AS "caseMgrNm"
+             , vpp.client
+             , vpp."client_NM" AS "clientNm"
+             , vpp."clientContact"
+             , vpp."clientContact_NM" AS "clientContactNm"
+             , vpp.inventor
+             , vpp."inventor_NM" AS "inventorNm"
+             , vpp."regMgr"
+             , vpp."regMgr_NM" AS "regMgrNm"
+             , vtdp."receiptDate"
+             , vtdp."appCompleteDate"
+             , vtdp."globalAppDate"
+             , vtdp."abandonDate"
+        FROM utb_app_ext_mst emst
+                 LEFT JOIN v_total_duedate_pivot vtdp ON emst.app_ext_seq = vtdp.tbl_seq
+                 LEFT JOIN v_participant_pivot vpp ON emst.app_ext_seq = vpp.tbl_seq
+        WHERE emst.office_seq = #{officeSeq}
+          AND emst.app_ext_seq = #{appExtSeq}
+          AND emst.del_yn = 'N'
+    </select>
+
+    <select id="getOverseaBasicList" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" resultType="kr.co.mindpro.ipms.domain.patentApp.appCommon.vo.CommonAppVO">
+        SELECT
+            page_data.*,
+            (
+                SELECT string_agg(c.client_name_ko, '/')
+                FROM utb_customer_mapp cm
+                JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                WHERE cm.office_seq = page_data."officeSeq"
+                AND cm.tbl_seq = page_data."appExtSeq"
+                AND cm.customer_category_code = 'client'
+                AND cm.del_yn = 'N' AND c.del_yn = 'N'
+            ) AS "clientNm",
+            (
+                SELECT string_agg(c.client_name_ko, '/')
+                FROM utb_customer_mapp cm
+                JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                WHERE cm.office_seq = page_data."officeSeq"
+                AND cm.tbl_seq = page_data."appExtSeq"
+                AND cm.customer_category_code = 'applicant'
+                AND cm.del_yn = 'N' AND c.del_yn = 'N'
+            ) AS "applicantNm"
+        FROM (
+        /* 2. 검색 조건 필터링 및 페이징 처리를 먼저 수행 (최종 N건만 추출) */
+        SELECT * FROM (
+            SELECT
+                mst.office_seq AS "officeSeq"
+                , mst.app_ext_seq AS "appExtSeq"
+                , mst.right_category AS "rightTypeCode"
+                , fn_get_cd_nm('PAT_TYPE', mst.right_category) AS "rightTypeName"
+                , mst.app_kind AS "appTypeCode"
+                , fn_get_cd_nm('APP_TYPE_CD', mst.app_kind) AS "appTypeName"
+                , mst.asset_no AS "ourRef"
+                , mst.case_code AS "caseNo"
+                , mst.dept_code AS "deptName"
+                , mst.app_name_ko AS "titleKo"
+                , mst.app_name_en AS "titleEn"
+                , mst.product_class AS "goodsClass"
+                , mst.individual_country_cnt AS "individualCountryCnt"
+                , mst.individual_country_content AS "designatedIndividual"
+                , mst.pct_cnt AS "pctCnt"
+                , mst.pct_content AS "designatedPct"
+                , mst.ep_cnt AS "epCnt"
+                , mst.ep_content AS "designatedEp"
+                , mst.madrid_cnt AS "madridCnt"
+                , mst.madrid_content AS "designatedMadrid"
+                , mst.international_design_cnt AS "internationalDesignCnt"
+                , mst.international_design_content AS "designatedIntlDesign"
+                , mst.grade AS "gradeCode"
+                , fn_get_cd_nm('IP_GRADE_CD', mst.grade) AS "gradeName"
+                , mst.independent_claim_cnt AS "independentClaims"
+                , mst.dependent_claim_cnt AS "dependentClaims"
+                , mst.spec_cnt AS "overseaSpecPage"
+                , mst.drawing_cnt AS "drawingCount"
+                , mst.global_app_no AS "globalAppNo"
+                , mst.representative_file_seq AS "representativeFileSeq"
+                , mst.give_up_content AS "abandonNote"
+                , mst.create_user AS "createUser"
+                , mst.create_at AS "createAt"
+                , mst.update_user AS "updateUser"
+                , mst.update_at AS "updateAt"
+                , mst.del_yn AS "delYn"
+                , mst.note AS "note"
+                , vtdp."receiptDate"
+                , vtdp."appDate"
+                , vtdp."appCompleteDate"
+                , vtdp."globalAppDate"
+                , vtdp."regDate"
+                , vtdp."regDecisionDate"
+                , vtdp."regPaymentDate"
+                , vtdp."abandonDate"
+                , vpp."adminMgr" AS "adminMgr"
+                , vpp."adminMgr_NM" AS "adminMgrNm"
+                , vpp."caseMgr" AS "caseMgr"
+                , vpp."caseMgr_NM" AS "caseMgrNm"
+                , vpp.attorney AS "attorney"
+                , vpp."attorney_NM" AS "attorneyNm"
+            FROM utb_app_ext_mst mst
+            LEFT JOIN v_total_duedate_pivot vtdp ON mst.app_ext_seq = vtdp.tbl_seq
+            LEFT JOIN v_participant_pivot vpp ON mst.app_ext_seq = vpp.tbl_seq
+            WHERE mst.office_seq = #{request.officeSeq}
+            AND mst.del_yn = 'N'
+        ) AS combined
+        WHERE 1=1
+
+        /* 공통 코드 필터 */
+        <if test="request.searchCondition != null and request.searchCondition.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.searchCondition" item="cond">
+                    <if test="cond.codeName != null and cond.codeName != ''">
+                        <choose>
+                            <when test="cond.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="cond.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${cond.codeName}" = #{cond.codeValue})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        /* 날짜 필터 */
+        <if test="request.dateFilters != null and request.dateFilters.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.dateFilters" item="filter">
+                    <if test="filter.dateCode != null and filter.dateCode != ''">
+                        <choose>
+                            <when test="filter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="filter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        (to_char("${filter.dateCode}"::timestamp, 'YYYYMMDD') BETWEEN #{filter.startDate} AND #{filter.endDate})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        /* 텍스트 필터 및 고객명(EXISTS) 필터 */
+        <if test="request.textFilters != null and request.textFilters.size() > 0">
+            <foreach collection="request.textFilters" item="tFilter">
+                <choose>
+                    <when test="tFilter.codeName == 'clientNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appExtSeq"
+                        AND cm.customer_category_code = 'client'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+                    <when test="tFilter.codeName == 'applicantNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appExtSeq"
+                        AND cm.customer_category_code = 'applicant'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+                    <otherwise>
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${tFilter.codeName}" ILIKE CONCAT('%', #{tFilter.codeValue, jdbcType=VARCHAR}, '%'))
+                    </otherwise>
+                </choose>
+            </foreach>
+        </if>
+
+        ORDER BY "appExtSeq" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+
+        ) AS page_data
+    </select>
+
+    <select id="getOverseaBasicListCnt" resultType="int">
+        SELECT COUNT(1)
+        FROM (
+            SELECT mst.office_seq AS "officeSeq"
+                , mst.app_ext_seq AS "appExtSeq"
+                , mst.right_category AS "rightTypeCode"
+                , fn_get_cd_nm('PAT_TYPE', mst.right_category) AS "rightTypeName"
+                , mst.app_kind AS "appTypeCode"
+                , fn_get_cd_nm('APP_TYPE_CD', mst.app_kind) AS "appTypeName"
+                , mst.asset_no AS "ourRef"
+                , mst.case_code AS "caseNo"
+                , mst.dept_code AS "deptName"
+                , mst.app_name_ko AS "titleKo"
+                , mst.app_name_en AS "titleEn"
+                , mst.product_class AS "goodsClass"
+                , mst.individual_country_cnt AS "individualCountryCnt"
+                , mst.individual_country_content AS "designatedIndividual"
+                , mst.pct_cnt AS "pctCnt"
+                , mst.pct_content AS "designatedPct"
+                , mst.ep_cnt AS "epCnt"
+                , mst.ep_content AS "designatedEp"
+                , mst.madrid_cnt AS "madridCnt"
+                , mst.madrid_content AS "designatedMadrid"
+                , mst.international_design_cnt AS "internationalDesignCnt"
+                , mst.international_design_content AS "designatedIntlDesign"
+                , mst.grade AS "gradeCode"
+                , fn_get_cd_nm('IP_GRADE_CD', mst.grade) AS "gradeName"
+                , mst.independent_claim_cnt AS "independentClaims"
+                , mst.dependent_claim_cnt AS "dependentClaims"
+                , mst.spec_cnt AS "overseaSpecPage"
+                , mst.drawing_cnt AS "drawingCount"
+                , mst.global_app_no AS "globalAppNo"
+                , mst.representative_file_seq AS "representativeFileSeq"
+                , mst.give_up_content AS "abandonNote"
+                , mst.create_user AS "createUser"
+                , mst.create_at AS "createAt"
+                , mst.update_user AS "updateUser"
+                , mst.update_at AS "updateAt"
+                , mst.del_yn AS "delYn"
+                , mst.note AS "note"
+                , vtdp."receiptDate"
+                , vtdp."appDate"
+                , vtdp."appCompleteDate"
+                , vtdp."globalAppDate"
+                , vtdp."regDate"
+                , vtdp."regDecisionDate"
+                , vtdp."regPaymentDate"
+                , vtdp."abandonDate"
+                , vpp."adminMgr" AS "adminMgr"
+                , vpp."adminMgr_NM" AS "adminMgrNm"
+                , vpp."caseMgr" AS "caseMgr"
+                , vpp."caseMgr_NM" AS "caseMgrNm"
+                , vpp.attorney AS "attorney"
+                , vpp."attorney_NM" AS "attorneyNm"
+            FROM utb_app_ext_mst mst
+            LEFT JOIN v_total_duedate_pivot vtdp ON mst.app_ext_seq = vtdp.tbl_seq
+            LEFT JOIN v_participant_pivot vpp ON mst.app_ext_seq = vpp.tbl_seq
+            WHERE mst.office_seq = #{request.officeSeq}
+            AND mst.del_yn = 'N'
+        ) AS combined
+        WHERE 1=1
+
+        <if test="request.searchCondition != null and request.searchCondition.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.searchCondition" item="cond">
+                    <if test="cond.codeName != null and cond.codeName != ''">
+                        <choose>
+                            <when test="cond.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="cond.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${cond.codeName}" = #{cond.codeValue})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        <if test="request.dateFilters != null and request.dateFilters.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.dateFilters" item="filter">
+                    <if test="filter.dateCode != null and filter.dateCode != ''">
+                        <choose>
+                            <when test="filter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="filter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        (to_char("${filter.dateCode}"::timestamp, 'YYYYMMDD') BETWEEN #{filter.startDate} AND #{filter.endDate})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        <if test="request.textFilters != null and request.textFilters.size() > 0">
+            <foreach collection="request.textFilters" item="tFilter">
+                <choose>
+                    <when test="tFilter.codeName == 'clientNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appExtSeq"
+                        AND cm.customer_category_code = 'client'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <when test="tFilter.codeName == 'applicantNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appExtSeq"
+                        AND cm.customer_category_code = 'applicant'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <otherwise>
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${tFilter.codeName}" ILIKE CONCAT('%', #{tFilter.codeValue, jdbcType=VARCHAR}, '%'))
+                    </otherwise>
+                </choose>
+            </foreach>
+        </if>
+    </select>
+
+    <insert id="insertOverseaApp" parameterType="kr.co.mindpro.ipms.domain.patentApp.appCommon.vo.CommonAppVO">
+        <selectKey keyProperty="appSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_app_mst') AS appSeq
+        </selectKey>
+
+        INSERT INTO utb_app_mst (
+            office_seq
+            , app_seq
+            , app_route
+            , right_category
+            , country_code
+            , asset_no
+            , agent_ref
+            , retain_seq
+            , app_state
+            , state
+            , app_no
+            , dept_code
+            , app_name_ko
+            , app_name_en
+            , grade
+            , independent_claim
+            , dependent_claim
+            , oversea_spec_page
+            , spec_page
+            , provisional_app_no
+            , first_app_no
+            , original_app_no
+            , re_app_no
+            , global_app_no
+            , note
+            , ipc_category_code
+            , open_no
+            , public_no
+            , give_up_content
+            , ulti_dependent_claim_count
+            , year_cnt_management_yn
+            , reg_no
+            , reg_public_no
+            , next_payment_installment
+            , outsourcing_corp_name
+            , product_class
+            , outsourcing_yn
+            , app_category
+            , app_name
+            , drawing_paper_count
+            , original_reg_no
+            , double_app_no
+            , global_reg_no
+            , product_class_app_no
+            , madrid_no
+            , external_app_approach
+            , external_app_yn
+            , trademark_research_yn
+            , renewal_management_yn
+            , interior_preference_assert_yn
+            , mandate_paper_submit_yn
+            , app_classification
+            , app_kind
+            , app_language
+            , proposal_name
+            , foreign_app_timing
+            , access_code
+            , annuity_year
+            , annuity_reduc_rate
+            , figure_count
+            , reg_reduction_rate
+            , trademark_renewal_fee
+            , renewal_late_fee
+            , notice_exception_apply
+            , complete_20_yn
+            , app_20_country
+            , complete_30_yn
+            , app_30_country
+            , kr_designation_yn
+            , search_result
+            , intl_pub_no
+            , deemed_withdrawal_content
+            , designated
+            , registered_states
+            , subsequent
+            , div_app_no
+            , ep_search_result
+            , wipo_ref_no
+            , public_yn
+            , deferment_month_count
+            , pub_no
+            , authority_ref_no
+            , domestic_reg_no
+            , payment_installment
+            , case_classification
+            , client_name
+            , applicant_name
+            , reg_mgr_name
+            , foreign_agent_name
+            , kipo_delay_days
+            , parent_reg_app_no
+            , create_user
+            , create_at
+            , del_yn
+        ) VALUES (
+            #{officeSeq}
+            , #{appSeq}
+            , #{appRouteCode}
+            , #{rightTypeCode}
+            , #{countryCode}
+            , #{ourRef}
+            , #{yourRef}
+            , #{clientRef}
+            , #{statusCode}
+            , #{stateCode}
+            , #{appNo}
+            , #{deptName}
+            , #{titleKo}
+            , #{titleEn}
+            , #{gradeCode}
+            , #{independentClaims}
+            , #{dependentClaims}
+            , #{overseaSpecPage}
+            , #{specPage}
+            , #{provisionalAppNo}
+            , #{firstAppNo}
+            , #{originalAppNo}
+            , #{reAppNo}
+            , #{globalAppNo}
+            , #{note}
+            , #{ipcClassification}
+            , #{pubNo}
+            , #{announcementNo}
+            , #{abandonNote}
+            , #{finalClaimsCount}
+            , #{isAnnuityManaged}
+            , #{regNo}
+            , #{regAnnounceNo}
+            , #{nextPaymentInstallment}
+            , #{annuityAgency}
+            , #{goodsClass}
+            , #{outsourcingYn}
+            , #{appCategoryCode}
+            , #{appName}
+            , #{drawingCount}
+            , #{originalRegNo}
+            , #{dualAppNo}
+            , #{globalRegNo}
+            , #{productClassAppNo}
+            , #{madridAppNo}
+            , #{externalAppApproach}
+            , #{isForeignApp}
+            , #{isTrademarkResearch}
+            , #{isRenewalManaged}
+            , #{hasDomesticPriority}
+            , #{isPoaSubmitted}
+            , #{categoryCode}
+            , #{appTypeCode}
+            , #{appLanguageCode}
+            , #{proposal}
+            , #{foreignAppTimingCode}
+            , #{accessCode}
+            , #{annuityYear}
+            , #{annuityReducRateCode}
+            , #{figureCount}
+            , #{regReductionRateCode}
+            , #{trademarkRenewalFee}
+            , #{renewalLateFee}
+            , #{noticeExceptionApplyCode}
+            , #{complete20Yn}
+            , #{app20Country}
+            , #{complete30Yn}
+            , #{app30Country}
+            , #{krDesignationYn}
+            , #{searchResult}
+            , #{intlPubNo}
+            , #{deemedWithdrawalContent}
+            , #{designated}
+            , #{registeredStates}
+            , #{subsequent}
+            , #{divAppNo}
+            , #{epSearchResult}
+            , #{wipoRefNo}
+            , #{publicYn}
+            , #{defermentMonthCount}
+            , #{pubNo}
+            , #{wipoRefNo}
+            , #{domesticRegNo}
+            , #{paymentInstallment}
+            , '30'
+            , #{clientNm}
+            , #{applicantNm}
+            , #{regMgrNm}
+            , #{foreignAgentNm}
+            , #{kipoDelayDays}
+            , #{parentRegAppNo}
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , 'N'
+        )
+    </insert>
+
+    <select id="getOverseaAppDetail" resultType="kr.co.mindpro.ipms.domain.patentApp.appCommon.vo.CommonAppVO">
+        SELECT mst.office_seq AS "officeSeq"
+             , uem.app_ext_seq AS "appExtSeq"
+             , mst.app_seq AS "appSeq"
+             , mst.retain_seq AS "clientRef"
+             , mst.app_state AS "statusCode"
+             , fn_get_cd_nm('APP_STATE', mst.app_state) AS "statusName"
+             , mst.state AS "stateCode"
+             , fn_get_cd_nm('STATE', mst.state) AS "stateName"
+             , mst.country_code AS "countryCode"
+             , fn_get_ctry_nm(mst.country_code, 'C', 'KO') AS "countryName"
+             , mst.right_category AS "rightTypeCode"
+             , fn_get_cd_nm('PAT_TYPE', mst.right_category) AS "rightTypeName"
+             , mst.product_class AS "goodsClass"
+             , mst.app_name_ko AS "titleKo"
+             , mst.app_name_en AS "titleEn"
+             , mst.outsourcing_corp_name AS "annuityAgency"
+             , mst.outsourcing_yn AS "outsourcingYn"
+             , mst.give_up_content AS "abandonNote"
+             , mst.app_category AS "appCategoryCode"
+             , fn_get_cd_nm('APP_DIV_TYPE', mst.app_category) AS "appCategoryName"
+             , mst.app_name AS "appName"
+             , mst.grade AS "gradeCode"
+             , fn_get_cd_nm('IP_GRADE_CD', mst.grade) AS "gradeName"
+             , mst.independent_claim AS "independentClaims"
+             , mst.dependent_claim AS "dependentClaims"
+             , mst.drawing_paper_count AS "drawingCount"
+             , mst.ulti_dependent_claim_count AS "finalClaimsCount"
+             , mst.app_no AS "appNo"
+             , mst.first_app_no AS "firstAppNo"
+             , mst.original_app_no AS "originalAppNo"
+             , mst.original_reg_no AS "originalRegNo"
+             , mst.double_app_no AS "dualAppNo"
+             , mst.global_app_no AS "globalAppNo"
+             , mst.global_reg_no AS "globalRegNo"
+             , mst.reg_no AS "regNo"
+             , mst.open_no AS "pubNo"
+             , mst.product_class AS "goodsClass"
+             , mst.product_class_app_no AS "productClassAppNo"
+             , mst.re_app_no AS "reAppNo"
+             , mst.public_no AS "announcementNo"
+             , mst.reg_public_no AS "regAnnounceNo"
+             , mst.madrid_no AS "madridAppNo"
+             , mst.ipc_category_code AS "ipcClassification"
+             , mst.external_app_approach
+             , mst.year_cnt_management_yn AS "isAnnuityManaged"
+             , mst.external_app_yn AS "isForeignApp"
+             , mst.trademark_research_yn AS "isTrademarkResearch"
+             , mst.renewal_management_yn AS "isRenewalManaged"
+             , mst.interior_preference_assert_yn AS "hasDomesticPriority"
+             , mst.mandate_paper_submit_yn AS "isPoaSubmitted"
+             , mst.note
+             , mst.app_classification AS "categoryCode"
+             , fn_get_cd_nm('NAT_IO_DIV', mst.app_classification) AS "categoryName"
+             , mst.app_kind AS "appTypeCode"
+             , fn_get_cd_nm('APP_TYPE_CD', mst.app_kind) AS "appTypeName"
+             , mst.app_language AS "appLanguageCode"
+             , fn_get_cd_nm('APP_LANG_DIV', mst.app_language) AS "appLanguageName"
+             , mst.proposal_name AS "proposal"
+             , mst.foreign_app_timing AS "foreignAppTimingCode"
+             , fn_get_cd_nm('APP_SUBMIT_DIV', mst.foreign_app_timing) AS "foreignAppTimingName"
+             , mst.access_code
+             , mst.annuity_year
+             , mst.annuity_reduc_rate AS "annuityReducRateCode"
+             , fn_get_cd_nm('REDUC_RATE_CD', mst.annuity_reduc_rate) AS "annuityReducRateName"
+             , mst.spec_page
+             , mst.oversea_spec_page
+             , mst.figure_count
+             , mst.reg_reduction_rate AS "regReductionRateCode"
+             , fn_get_cd_nm('REDUC_RATE_CD', mst.reg_reduction_rate) AS "regReductionRateName"
+             , mst.asset_no AS "ourRef"
+             , mst.agent_ref AS "yourRef"
+             , mst.dept_code AS "deptName"
+             , mst.trademark_renewal_fee
+             , mst.renewal_late_fee
+             , mst.next_payment_installment
+             , mst.app_route AS "appRouteCode"
+             , fn_get_cd_nm('IP_PROC_TYPE', mst.app_route) AS "appRouteName"
+             , mst.provisional_app_no AS "provisionalAppNo"
+             , mst.parent_reg_app_no AS "parentRegAppNo"
+             , mst.notice_exception_apply AS "noticeExceptionApplyCode"
+             , fn_get_cd_nm('NOTICE_EXCEPTION', mst.notice_exception_apply) AS "noticeExceptionApplyName"
+             , mst.complete_20_yn
+             , mst.app_20_country
+             , mst.complete_30_yn
+             , mst.app_30_country
+             , mst.kr_designation_yn
+             , mst.search_result
+             , mst.intl_pub_no
+             , mst.deemed_withdrawal_content
+             , mst.designated
+             , mst.registered_states
+             , mst.subsequent
+             , mst.div_app_no
+             , mst.ep_search_result
+             , mst.wipo_ref_no
+             , mst.public_yn
+             , mst.deferment_month_count
+             , mst.pub_no
+             , mst.authority_ref_no AS "authorityRefNo"
+             , mst.domestic_reg_no AS "domesticRegNo"
+             , mst.payment_installment AS "paymentInstallment"
+             , mst.client_name AS "clientNm"
+             , mst.applicant_name AS "applicantNm"
+             , mst.reg_mgr_name AS "regMgrNm"
+             , mst.foreign_agent_name AS "foreignAgentNm"
+             , mst.kipo_delay_days AS "kipoDelayDays"
+             , mst.create_user
+             , mst.create_at
+             , mst.update_user
+             , mst.update_at
+             , mst.del_yn
+             , pat.patent_seq AS "patentSeq"
+             , pat.main_drawing_file AS "mainDrawingFile"
+             , pat.summary
+             , pat.claim_scope
+             , design.design_seq AS "designSeq"
+             , design.multi_view_drawing_file AS "multiViewDrawingFile"
+             , design.is_partial_design
+             , design.multi_design
+             , design.design_description
+             , design.design_summary
+             , trade.trademark_seq AS "trademarkSeq"
+             , trade.trademark_image_file AS "trademarkImageFile"
+              , vtdp."appOrderDate" AS "appOrderDate"
+              , vtdp."appDeadline" AS "appDeadline"
+              , vtdp."oaDeliveryDate" AS "oaDeliveryDate"
+              , vtdp."appDate" AS "appDate"
+              , vtdp."receiptDate" AS "receiptDate"
+              , vtdp."appCompleteDate" AS "appCompleteDate"
+              , vtdp."divDeadline" AS "divDeadline"
+              , vtdp."divAppDate" AS "divAppDate"
+              , vtdp."autoProtectionDate" AS "autoProtectionDate"
+              , vtdp."authoritySubmissionDate" AS "authoritySubmissionDate"
+              , vtdp."hagueDeliveryDate" AS "hagueDeliveryDate"
+              , vtdp."provisionalAppDate" AS "provisionalAppDate"
+              , vtdp."firstAppDate" AS "firstAppDate"
+              , vtdp."originalAppDate" AS "originalAppDate"
+              , vtdp."originalRegDate" AS "originalRegDate"
+              , vtdp."reAppDate" AS "reAppDate"
+              , vtdp."globalAppDate" AS "globalAppDate"
+              , vtdp."parentRegAppDate" AS "parentRegAppDate"
+              , vtdp."npe20Deadline" AS "npe20Deadline"
+              , vtdp."entry20CompleteDate" AS "entry20CompleteDate"
+              , vtdp."npe30Deadline" AS "npe30Deadline"
+              , vtdp."entry30CompleteDate" AS "entry30CompleteDate"
+              , vtdp."filingFeeDeadline" AS "filingFeeDeadline"
+              , vtdp."filingFeePayDate" AS "filingFeePayDate"
+              , vtdp."isaReceiptDate" AS "isaReceiptDate"
+              , vtdp."isrReportDate" AS "isrReportDate"
+              , vtdp."ipeDeadline" AS "ipeDeadline"
+              , vtdp."ipeRequestDate" AS "ipeRequestDate"
+              , vtdp."ipeReportDate" AS "ipeReportDate"
+              , vtdp."intlReceiptDate" AS "intlReceiptDate"
+              , vtdp."intlPubDate" AS "intlPubDate"
+              , vtdp."examRequestDeadline" AS "examRequestDeadline"
+              , vtdp."examRequestOrderDate" AS "examRequestOrderDate"
+              , vtdp."examRequestDate" AS "examRequestDate"
+              , vtdp."pubDate" AS "pubDate"
+              , vtdp."announcementDate" AS "announcementDate"
+              , vtdp."announcementDecisionDate" AS "announcementDecisionDate"
+              , vtdp."amendNoticeDate" AS "amendNoticeDate"
+              , vtdp."amendDeadline" AS "amendDeadline"
+              , vtdp."amendSubmitDate" AS "amendSubmitDate"
+              , vtdp."claimAmendDate" AS "claimAmendDate"
+             , vtdp."abandonOrderDate"
+             , vtdp."abandonReceiptDate"
+             , vtdp."abandonDate"
+             , vtdp."deemedWithdrawalReceiptDate"
+             , vtdp."deemedWithdrawalDate"
+--              , vtdp."kipoDelayDays"
+             , vtdp."rightPeriod"
+             , vtdp."regDecisionDate"
+             , vtdp."regReceiptDate"
+             , vtdp."regNormalDeadline"
+             , vtdp."regGraceDeadline"
+             , vtdp."regOrderDate"
+             , vtdp."regPaymentDate"
+             , vtdp."regDate"
+             , vtdp."regAnnounceDate"
+             , vtdp."renewalDeadline"
+--              , vtdp."epAnnouncementDate"
+--              , vtdp."epRegDecisionDate"
+--              , vtdp."epRegNormalDeadline"
+--              , vtdp."epRegGraceDeadline"
+--              , vtdp."epRegOrderDate"
+--              , vtdp."epRegPaymentDate"
+             , vtdp."searchReceiptDate"
+             , vtdp."searchReportDate"
+             , vtdp."annuityOrderDate"
+             , vtdp."standardDeadline"
+             , vtdp."penaltyDeadline"
+             , vtdp."domesticRegDate"
+             , vtdp."protectionStartDate"
+             , vtdp."foreign6mDeadline"
+             , vtdp."foreign1yDeadline"
+             , vtdp."foreignAppDate"
+             , vtdp."inventionReportDate"
+             , vtdp."draftDeadline"
+             , vtdp."draftSendDate"
+             , vtdp."dualAppDate"
+             , vtdp."earlyPubRequestDate"
+             , vtdp."domesticPriorDeadline"
+             , vtdp."domesticPriorDate"
+             , vtdp."priorExamReqDate"
+             , vtdp."priorExamDecDate"
+             , vtdp."recoveryDeadline"
+             , vtdp."priorityDate"
+             , vtdp."madridAppDate"
+             , vpp."adminMgr"
+             , vpp."adminMgr_NM" AS "adminMgrNm"
+             , vpp."applicantContact"
+             , vpp."applicantContact_NM" AS "applicantContactNm"
+             , vpp."appManager"
+             , vpp."appManager_NM" AS "appManagerNm"
+             , vpp."attorney"
+             , vpp."attorney_NM" AS "attorneyNm"
+             , vpp."caseMgr"
+             , vpp."caseMgr_NM" AS "caseMgrNm"
+             , vpp."clientContact"
+             , vpp."clientContact_NM" AS "clientContactNm"
+             , vpp."inventor"
+             , vpp."inventor_NM" AS "inventorNm"
+        FROM utb_app_mst mst
+                 LEFT JOIN utb_app_patent pat ON mst.app_seq = pat.app_seq
+                 LEFT JOIN utb_app_design design ON mst.app_seq = design.app_seq
+                 LEFT JOIN utb_app_trademark trade ON mst.app_seq = trade.app_seq
+                 LEFT JOIN v_total_duedate_pivot vtdp ON mst.app_seq = vtdp.tbl_seq
+                 LEFT JOIN v_participant_pivot vpp ON mst.app_seq = vpp.tbl_seq
+                 LEFT JOIN utb_ext_mapp uem ON mst.app_seq = uem.app_seq AND mst.office_seq = uem.office_seq
+        WHERE mst.office_seq = #{officeSeq}
+          AND mst.app_seq = #{appSeq}
+          AND mst.del_yn = 'N'
+    </select>
+
+    <insert id="insertBasicChainMap" parameterType="kr.co.mindpro.ipms.domain.patentApp.appCommon.vo.CommonAppVO">
+        <selectKey keyProperty="extMappSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_ext_mapp') AS extMappSeq
+        </selectKey>
+        INSERT INTO utb_ext_mapp (
+        office_seq
+        , app_ext_seq
+        , app_seq
+        , ext_mapp_seq
+        , create_user
+        , create_at
+        , del_yn
+        , note
+        ) VALUES (
+        #{officeSeq}
+        , #{appExtSeq}
+        , #{appSeq}
+        , #{extMappSeq}
+        , #{createUser}
+        , CURRENT_TIMESTAMP
+        , 'N'
+        , #{note}
+        )
+    </insert>
+
+    <select id="getDuplicateAppExtCnt" resultType="int">
+        SELECT COUNT(*)
+        FROM utb_app_ext_mst
+        WHERE app_ext_seq = #{appExtSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <update id="softDeleteAppExt">
+        UPDATE utb_app_ext_mst
+        SET del_yn = 'Y'
+          , update_user = #{updateUser}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE app_ext_seq = #{appExtSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <insert id="insertIndividualPatentApp" parameterType="kr.co.mindpro.ipms.domain.patentApp.domesticApp.vo.AppPatentVO">
+        INSERT INTO utb_app_patent (
+             app_seq
+            , office_seq
+            , app_category
+            , main_drawing_file
+            , create_user
+            , create_at
+            , update_user
+            , update_at
+            , del_yn
+            , note
+        ) VALUES (
+               #{appSeq}
+             , #{officeSeq}
+             , #{appCategoryCode}
+             , #{mainDrawingFile}
+             , #{createUser}
+             , CURRENT_TIMESTAMP
+             , #{updateUser}
+             , CURRENT_TIMESTAMP
+             , 'N'
+             , #{note}
+        )
+    </insert>
+
+    <sql id="whereClause">
+        WHERE   mst.office_seq = #{request.officeSeq}
+        AND     mst.del_yn = 'N'
+    <![CDATA[
+        AND     mst.app_classification in ('30')
+        ]]>
+    </sql>
+
+    <select id="getOverseaAppList" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" resultType="kr.co.mindpro.ipms.domain.patentApp.appCommon.vo.CommonAppVO">
+        SELECT
+        page_data.*
+
+        , (
+        SELECT string_agg(c.client_name_ko, '/')
+        FROM utb_customer_mapp cm
+        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+        WHERE cm.office_seq = page_data."officeSeq"
+        AND cm.tbl_seq = page_data."appSeq"
+        AND cm.customer_category_code = 'client'
+        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+        ) AS "clientNm"
+
+        , (
+        SELECT string_agg(c.client_name_ko, '/')
+        FROM utb_customer_mapp cm
+        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+        WHERE cm.office_seq = page_data."officeSeq"
+        AND cm.tbl_seq = page_data."appSeq"
+        AND cm.customer_category_code = 'applicant'
+        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+        ) AS "applicantNm"
+
+        , (
+        SELECT string_agg(c.client_name_ko, '/')
+        FROM utb_customer_mapp cm
+        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+        WHERE cm.office_seq = page_data."officeSeq"
+        AND cm.tbl_seq = page_data."appSeq"
+        AND cm.customer_category_code = 'foreignAgent'
+        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+        ) AS "foreignAgentNm"
+
+        , (
+        SELECT string_agg(c.client_name_ko, '/')
+        FROM utb_customer_mapp cm
+        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+        WHERE cm.office_seq = page_data."officeSeq"
+        AND cm.tbl_seq = page_data."appSeq"
+        AND cm.customer_category_code = 'regMgr'
+        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+        ) AS "regMgrNm"
+
+        FROM (
+        SELECT * FROM (
+        SELECT
+        mst.office_seq AS "officeSeq"
+        , uem.app_ext_seq AS "appExtSeq"
+        , mst.app_seq AS "appSeq"
+        , mst.retain_seq AS "clientRef"
+        , mst.app_state AS "statusCode"
+        , fn_get_cd_nm('APP_STATE', mst.app_state) AS "statusName"
+        , mst.state AS "stateCode"
+        , mst.country_code AS "countryCode"
+        , fn_get_ctry_nm(mst.country_code, 'C', 'KO') AS "countryName"
+        , mst.right_category AS "rightTypeCode"
+        , fn_get_cd_nm('PAT_TYPE', mst.right_category) AS "rightTypeName"
+        , mst.product_class AS "goodsClass"
+        , mst.app_name_ko AS "titleKo"
+        , mst.app_name_en AS "titleEn"
+        , mst.outsourcing_corp_name AS "annuityAgency"
+        , mst.outsourcing_yn AS "outsourcingYn"
+        , mst.give_up_content AS "abandonNote"
+        , mst.app_category AS "appCategoryCode"
+        , fn_get_cd_nm('APP_DIV_TYPE', mst.app_category) AS "appCategoryName"
+        , mst.app_name AS "appName"
+        , mst.grade AS "gradeCode"
+        , fn_get_cd_nm('IP_GRADE_CD', mst.grade) AS "gradeName"
+        , mst.independent_claim AS "independentClaims"
+        , mst.dependent_claim AS "dependentClaims"
+        , mst.drawing_paper_count AS "drawingCount"
+        , mst.ulti_dependent_claim_count AS "finalClaimsCount"
+        , mst.app_no AS "appNo"
+        , mst.first_app_no AS "firstAppNo"
+        , mst.original_app_no AS "originalAppNo"
+        , mst.original_reg_no AS "originalRegNo"
+        , mst.double_app_no AS "dualAppNo"
+        , mst.global_app_no AS "globalAppNo"
+        , mst.global_reg_no AS "globalRegNo"
+        , mst.reg_no AS "regNo"
+        , mst.open_no AS "pubNo"
+        , mst.product_class_app_no AS "productClassAppNo"
+        , mst.re_app_no AS "reAppNo"
+        , mst.public_no AS "announcementNo"
+        , mst.reg_public_no AS "regAnnounceNo"
+        , mst.madrid_no AS "madridAppNo"
+        , mst.ipc_category_code AS "ipcClassification"
+        , mst.external_app_approach AS "externalAppApproach"
+        , mst.year_cnt_management_yn AS "isAnnuityManaged"
+        , mst.external_app_yn AS "isForeignApp"
+        , mst.trademark_research_yn AS "isTrademarkResearch"
+        , mst.renewal_management_yn AS "isRenewalManaged"
+        , mst.interior_preference_assert_yn AS "interiorPreferenceAssertYn"
+        , mst.mandate_paper_submit_yn AS "isPoaSubmitted"
+        , mst.note AS "note"
+        , mst.app_classification AS "categoryCode"
+        , fn_get_cd_nm('NAT_IO_DIV', mst.app_classification) AS "categoryName"
+        , mst.app_kind AS "appTypeCode"
+        , fn_get_cd_nm('APP_TYPE_CD', mst.app_kind) AS "appTypeName"
+        , mst.app_language AS "appLanguageCode"
+        , fn_get_cd_nm('APP_LANG_DIV', mst.app_language) AS "appLanguageName"
+        , mst.proposal_name AS "proposal"
+        , mst.foreign_app_timing AS "foreignAppTimingCode"
+        , fn_get_cd_nm('APP_SUBMIT_DIV', mst.foreign_app_timing) AS "foreignAppTimingName"
+        , mst.access_code AS "accessCode"
+        , mst.annuity_year AS "annuityYear"
+        , mst.annuity_reduc_rate AS "annuityReducRateCode"
+        , fn_get_cd_nm('REDUC_RATE_CD', mst.annuity_reduc_rate) AS "annuityReducRateName"
+        , mst.spec_page AS "specPage"
+        , mst.oversea_spec_page AS "overseaSpecPage"
+        , mst.figure_count AS "figureCount"
+        , mst.reg_reduction_rate AS "regReductionRateCode"
+        , fn_get_cd_nm('REDUC_RATE_CD', mst.reg_reduction_rate) AS "regReductionRateName"
+        , mst.asset_no AS "ourRef"
+        , mst.agent_ref AS "yourRef"
+        , mst.dept_code AS "deptName"
+        , mst.trademark_renewal_fee AS "trademarkRenewalFee"
+        , mst.renewal_late_fee AS "renewalLateFee"
+        , mst.next_payment_installment AS "nextPaymentInstallment"
+        , mst.app_route AS "appRouteCode"
+        , fn_get_cd_nm('IP_PROC_TYPE', mst.app_route) AS "appRouteName"
+        , mst.provisional_app_no AS "provisionalAppNo"
+        , mst.parent_reg_app_no AS "parentRegAppNo"
+        , mst.notice_exception_apply AS "noticeExceptionApplyCode"
+        , fn_get_cd_nm('NOTICE_EXCEPTION', mst.notice_exception_apply) AS "noticeExceptionApplyName"
+        , mst.complete_20_yn AS "complete20Yn"
+        , mst.app_20_country AS "app20Country"
+        , mst.complete_30_yn AS "complete30Yn"
+        , mst.app_30_country AS "app30Country"
+        , mst.kr_designation_yn AS "krDesignationYn"
+        , mst.search_result AS "searchResult"
+        , mst.intl_pub_no AS "intlPubNo"
+        , mst.deemed_withdrawal_content AS "deemedWithdrawalContent"
+        , mst.designated AS "designated"
+        , mst.registered_states AS "registeredStates"
+        , mst.subsequent AS "subsequent"
+        , mst.div_app_no AS "divAppNo"
+        , mst.ep_search_result AS "epSearchResult"
+        , mst.wipo_ref_no AS "wipoRefNo"
+        , mst.public_yn AS "publicYn"
+        , mst.deferment_month_count AS "defermentMonthCount"
+        , mst.pub_no AS "pubNo"
+        , mst.authority_ref_no AS "authorityRefNo"
+        , mst.domestic_reg_no AS "domesticRegNo"
+        , mst.payment_installment AS "paymentInstallment"
+        , mst.kipo_delay_days AS "kipoDelayDays"
+        , mst.create_user AS "createUser"
+        , mst.create_at AS "createAt"
+        , mst.update_user AS "updateUser"
+        , mst.update_at AS "updateAt"
+        , mst.del_yn AS "delYn"
+        , pat.patent_seq AS "patentSeq"
+        , pat.main_drawing_file AS "mainDrawingFile"
+        , pat.summary AS "summary"
+        , pat.claim_scope AS "claimScope"
+        , design.design_seq AS "designSeq"
+        , design.multi_view_drawing_file AS "multiViewDrawingFile"
+        , design.is_partial_design AS "isPartialDesign"
+        , design.multi_design AS "multiDesign"
+        , design.design_description AS "designDescription"
+        , design.design_summary AS "designSummary"
+        , trade.trademark_seq AS "trademarkSeq"
+        , trade.trademark_image_file AS "trademarkImageFile"
+        , vtdp."appOrderDate" AS "appOrderDate"
+        , vtdp."appDeadline" AS "appDeadline"
+        , vtdp."oaDeliveryDate" AS "oaDeliveryDate"
+        , vtdp."appDate" AS "appDate"
+        , vtdp."receiptDate" AS "receiptDate"
+        , vtdp."appCompleteDate" AS "appCompleteDate"
+        , vtdp."divDeadline" AS "divDeadline"
+        , vtdp."divAppDate" AS "divAppDate"
+        , vtdp."autoProtectionDate" AS "autoProtectionDate"
+        , vtdp."authoritySubmissionDate" AS "authoritySubmissionDate"
+        , vtdp."hagueDeliveryDate" AS "hagueDeliveryDate"
+        , vtdp."provisionalAppDate" AS "provisionalAppDate"
+        , vtdp."firstAppDate" AS "firstAppDate"
+        , vtdp."originalAppDate" AS "originalAppDate"
+        , vtdp."originalRegDate" AS "originalRegDate"
+        , vtdp."reAppDate" AS "reAppDate"
+        , vtdp."globalAppDate" AS "globalAppDate"
+        , vtdp."parentRegAppDate" AS "parentRegAppDate"
+        , vtdp."npe20Deadline" AS "npe20Deadline"
+        , vtdp."entry20CompleteDate" AS "entry20CompleteDate"
+        , vtdp."npe30Deadline" AS "npe30Deadline"
+        , vtdp."entry30CompleteDate" AS "entry30CompleteDate"
+        , vtdp."filingFeeDeadline" AS "filingFeeDeadline"
+        , vtdp."filingFeePayDate" AS "filingFeePayDate"
+        , vtdp."isaReceiptDate" AS "isaReceiptDate"
+        , vtdp."isrReportDate" AS "isrReportDate"
+        , vtdp."ipeDeadline" AS "ipeDeadline"
+        , vtdp."ipeRequestDate" AS "ipeRequestDate"
+        , vtdp."ipeReportDate" AS "ipeReportDate"
+        , vtdp."intlReceiptDate" AS "intlReceiptDate"
+        , vtdp."intlPubDate" AS "intlPubDate"
+        , vtdp."examRequestDeadline" AS "examRequestDeadline", vtdp."examRequestDeadline" AS "examLimitDate"
+        , vtdp."examRequestOrderDate" AS "examRequestOrderDate"
+        , vtdp."examRequestDate" AS "examRequestDate"
+        , vtdp."pubDate" AS "pubDate"
+        , vtdp."announcementDate" AS "announcementDate"
+        , vtdp."announcementDecisionDate" AS "announcementDecisionDate"
+        , vtdp."amendNoticeDate" AS "amendNoticeDate"
+        , vtdp."amendDeadline" AS "amendDeadline"
+        , vtdp."amendSubmitDate" AS "amendSubmitDate"
+        , vtdp."claimAmendDate" AS "claimAmendDate"
+        , vtdp."abandonOrderDate" AS "abandonOrderDate"
+        , vtdp."abandonReceiptDate" AS "abandonReceiptDate"
+        , vtdp."abandonDate" AS "abandonDate"
+        , vtdp."deemedWithdrawalReceiptDate" AS "deemedWithdrawalReceiptDate"
+        , vtdp."deemedWithdrawalDate" AS "deemedWithdrawalDate"
+--         , vtdp."kipoDelayDays" AS "kipoDelayDays"
+        , vtdp."rightPeriod" AS "rightPeriod"
+        , vtdp."regDecisionDate" AS "regDecisionDate"
+        , vtdp."regReceiptDate" AS "regReceiptDate"
+        , vtdp."regNormalDeadline" AS "regNormalDeadline", vtdp."regNormalDeadline" AS "annuityLimitDate"
+        , vtdp."regGraceDeadline" AS "regGraceDeadline"
+        , vtdp."regOrderDate" AS "regOrderDate"
+        , vtdp."regPaymentDate" AS "regPaymentDate", vtdp."regPaymentDate" AS "annuityPayDate"
+        , vtdp."regDate" AS "regDate"
+        , vtdp."regAnnounceDate" AS "regAnnounceDate"
+        , vtdp."renewalDeadline" AS "renewalDeadline", vtdp."renewalDeadline" AS "renewLimitDate"
+        , vtdp."epAnnouncementDate" AS "epAnnouncementDate"
+        , vtdp."searchReceiptDate" AS "searchReceiptDate"
+        , vtdp."searchReportDate" AS "searchReportDate"
+        , vtdp."annuityOrderDate" AS "annuityOrderDate"
+        , vtdp."standardDeadline" AS "standardDeadline"
+        , vtdp."penaltyDeadline" AS "penaltyDeadline"
+        , vtdp."domesticRegDate" AS "domesticRegDate"
+        , vtdp."protectionStartDate" AS "protectionStartDate"
+        , vpp."adminMgr" AS "adminMgr"
+        , vpp."adminMgr_NM" AS "adminMgrNm"
+        , vpp."applicantContact" AS "applicantContact"
+        , vpp."applicantContact_NM" AS "applicantContactNm"
+        , vpp."appManager" AS "appManager"
+        , vpp."appManager_NM" AS "appManagerNm"
+        , vpp.attorney AS "attorney"
+        , vpp."attorney_NM" AS "attorneyNm"
+        , vpp."caseMgr" AS "caseMgr"
+        , vpp."caseMgr_NM" AS "caseMgrNm"
+        , vpp."clientContact" AS "clientContact"
+        , vpp."clientContact_NM" AS "clientContactNm"
+        , vpp.inventor AS "inventor"
+        , vpp."inventor_NM" AS "inventorNm"
+        FROM utb_app_mst mst
+        LEFT JOIN utb_app_patent pat ON mst.app_seq = pat.app_seq
+        LEFT JOIN utb_app_design design ON mst.app_seq = design.app_seq
+        LEFT JOIN utb_app_trademark trade ON mst.app_seq = trade.app_seq
+        LEFT JOIN v_total_duedate_pivot vtdp ON mst.app_seq = vtdp.tbl_seq
+        LEFT JOIN v_participant_pivot vpp ON mst.app_seq = vpp.tbl_seq
+        LEFT JOIN utb_ext_mapp uem ON mst.app_seq = uem.app_seq AND mst.office_seq = uem.office_seq
+
+        <include refid="whereClause"/>
+        ) AS combined
+        WHERE 1=1
+
+        <if test="request.searchCondition != null and request.searchCondition.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.searchCondition" item="cond">
+                    <if test="cond.codeName != null and cond.codeName != ''">
+                        <choose>
+                            <when test="cond.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="cond.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${cond.codeName}" = #{cond.codeValue})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        <if test="request.dateFilters != null and request.dateFilters.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.dateFilters" item="filter">
+                    <if test="filter.dateCode != null and filter.dateCode != ''">
+                        <choose>
+                            <when test="filter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="filter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        (to_char("${filter.dateCode}"::timestamp, 'YYYYMMDD') BETWEEN #{filter.startDate} AND #{filter.endDate})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        <if test="request.textFilters != null and request.textFilters.size() > 0">
+            <foreach collection="request.textFilters" item="tFilter">
+                <choose>
+                    <when test="tFilter.codeName == 'clientNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appSeq"
+                        AND cm.customer_category_code = 'client'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <when test="tFilter.codeName == 'applicantNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appSeq"
+                        AND cm.customer_category_code = 'applicant'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <when test="tFilter.codeName == 'foreignAgentNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appSeq"
+                        AND cm.customer_category_code = 'foreignAgent'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <when test="tFilter.codeName == 'regMgrNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appSeq"
+                        AND cm.customer_category_code = 'regMgr'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <otherwise>
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${tFilter.codeName}" ILIKE CONCAT('%', #{tFilter.codeValue, jdbcType=VARCHAR}, '%'))
+                    </otherwise>
+                </choose>
+            </foreach>
+        </if>
+
+        ORDER BY "appSeq" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+
+        ) AS page_data
+    </select>
+
+    <select id="getOverseaAppCount" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" resultType="int">
+        SELECT COUNT(1) FROM (
+        SELECT
+        mst.office_seq AS "officeSeq"
+        , mst.app_seq AS "appSeq"
+        , mst.retain_seq AS "clientRef"
+        , mst.app_state AS "statusCode"
+        , fn_get_cd_nm('APP_STATE', mst.app_state) AS "statusName"
+        , mst.state AS "stateCode"
+        , mst.country_code AS "countryCode"
+        , fn_get_ctry_nm(mst.country_code, 'C', 'KO') AS "countryName"
+        , mst.right_category AS "rightTypeCode"
+        , fn_get_cd_nm('PAT_TYPE', mst.right_category) AS "rightTypeName"
+        , mst.product_class AS "goodsClass"
+        , mst.app_name_ko AS "titleKo"
+        , mst.app_name_en AS "titleEn"
+        , mst.outsourcing_corp_name AS "annuityAgency"
+        , mst.outsourcing_yn AS "outsourcingYn"
+        , mst.give_up_content AS "abandonNote"
+        , mst.app_category AS "appCategoryCode"
+        , fn_get_cd_nm('APP_DIV_TYPE', mst.app_category) AS "appCategoryName"
+        , mst.app_name AS "appName"
+        , mst.grade AS "gradeCode"
+        , fn_get_cd_nm('IP_GRADE_CD', mst.grade) AS "gradeName"
+        , mst.independent_claim AS "independentClaims"
+        , mst.dependent_claim AS "dependentClaims"
+        , mst.drawing_paper_count AS "drawingCount"
+        , mst.ulti_dependent_claim_count AS "finalClaimsCount"
+        , mst.app_no AS "appNo"
+        , mst.first_app_no AS "firstAppNo"
+        , mst.original_app_no AS "originalAppNo"
+        , mst.original_reg_no AS "originalRegNo"
+        , mst.double_app_no AS "dualAppNo"
+        , mst.global_app_no AS "globalAppNo"
+        , mst.global_reg_no AS "globalRegNo"
+        , mst.reg_no AS "regNo"
+        , mst.open_no AS "pubNo"
+        , mst.product_class_app_no AS "productClassAppNo"
+        , mst.re_app_no AS "reAppNo"
+        , mst.public_no AS "announcementNo"
+        , mst.reg_public_no AS "regAnnounceNo"
+        , mst.madrid_no AS "madridAppNo"
+        , mst.ipc_category_code AS "ipcClassification"
+        , mst.external_app_approach AS "externalAppApproach"
+        , mst.year_cnt_management_yn AS "isAnnuityManaged"
+        , mst.external_app_yn AS "isForeignApp"
+        , mst.trademark_research_yn AS "isTrademarkResearch"
+        , mst.renewal_management_yn AS "isRenewalManaged"
+        , mst.interior_preference_assert_yn AS "interiorPreferenceAssertYn"
+        , mst.mandate_paper_submit_yn AS "isPoaSubmitted"
+        , mst.note AS "note"
+        , mst.app_classification AS "categoryCode"
+        , fn_get_cd_nm('NAT_IO_DIV', mst.app_classification) AS "categoryName"
+        , mst.app_kind AS "appTypeCode"
+        , fn_get_cd_nm('APP_TYPE_CD', mst.app_kind) AS "appTypeName"
+        , mst.app_language AS "appLanguageCode"
+        , fn_get_cd_nm('APP_LANG_DIV', mst.app_language) AS "appLanguageName"
+        , mst.proposal_name AS "proposal"
+        , mst.foreign_app_timing AS "foreignAppTimingCode"
+        , fn_get_cd_nm('APP_SUBMIT_DIV', mst.foreign_app_timing) AS "foreignAppTimingName"
+        , mst.access_code AS "accessCode"
+        , mst.annuity_year AS "annuityYear"
+        , mst.annuity_reduc_rate AS "annuityReducRateCode"
+        , fn_get_cd_nm('REDUC_RATE_CD', mst.annuity_reduc_rate) AS "annuityReducRateName"
+        , mst.spec_page AS "specPage"
+        , mst.oversea_spec_page AS "overseaSpecPage"
+        , mst.figure_count AS "figureCount"
+        , mst.reg_reduction_rate AS "regReductionRateCode"
+        , fn_get_cd_nm('REDUC_RATE_CD', mst.reg_reduction_rate) AS "regReductionRateName"
+        , mst.asset_no AS "ourRef"
+        , mst.agent_ref AS "yourRef"
+        , mst.dept_code AS "deptName"
+        , mst.trademark_renewal_fee AS "trademarkRenewalFee"
+        , mst.renewal_late_fee AS "renewalLateFee"
+        , mst.next_payment_installment AS "nextPaymentInstallment"
+        , mst.app_route AS "appRouteCode"
+        , fn_get_cd_nm('IP_PROC_TYPE', mst.app_route) AS "appRouteName"
+        , mst.provisional_app_no AS "provisionalAppNo"
+        , mst.parent_reg_app_no AS "parentRegAppNo"
+        , mst.notice_exception_apply AS "noticeExceptionApplyCode"
+        , fn_get_cd_nm('NOTICE_EXCEPTION', mst.notice_exception_apply) AS "noticeExceptionApplyName"
+        , mst.complete_20_yn AS "complete20Yn"
+        , mst.app_20_country AS "app20Country"
+        , mst.complete_30_yn AS "complete30Yn"
+        , mst.app_30_country AS "app30Country"
+        , mst.kr_designation_yn AS "krDesignationYn"
+        , mst.search_result AS "searchResult"
+        , mst.intl_pub_no AS "intlPubNo"
+        , mst.deemed_withdrawal_content AS "deemedWithdrawalContent"
+        , mst.designated AS "designated"
+        , mst.registered_states AS "registeredStates"
+        , mst.subsequent AS "subsequent"
+        , mst.div_app_no AS "divAppNo"
+        , mst.ep_search_result AS "epSearchResult"
+        , mst.wipo_ref_no AS "wipoRefNo"
+        , mst.public_yn AS "publicYn"
+        , mst.deferment_month_count AS "defermentMonthCount"
+        , mst.pub_no AS "pubNo"
+        , mst.authority_ref_no AS "authorityRefNo"
+        , mst.domestic_reg_no AS "domesticRegNo"
+        , mst.payment_installment AS "paymentInstallment"
+        , mst.kipo_delay_days AS "kipoDelayDays"
+        , mst.create_user AS "createUser"
+        , mst.create_at AS "createAt"
+        , mst.update_user AS "updateUser"
+        , mst.update_at AS "updateAt"
+        , mst.del_yn AS "delYn"
+        , pat.patent_seq AS "patentSeq"
+        , pat.main_drawing_file AS "mainDrawingFile"
+        , pat.summary AS "summary"
+        , pat.claim_scope AS "claimScope"
+        , design.design_seq AS "designSeq"
+        , design.multi_view_drawing_file AS "multiViewDrawingFile"
+        , design.is_partial_design AS "isPartialDesign"
+        , design.multi_design AS "multiDesign"
+        , design.design_description AS "designDescription"
+        , design.design_summary AS "designSummary"
+        , trade.trademark_seq AS "trademarkSeq"
+        , trade.trademark_image_file AS "trademarkImageFile"
+        , vtdp."appOrderDate" AS "appOrderDate"
+        , vtdp."appDeadline" AS "appDeadline"
+        , vtdp."oaDeliveryDate" AS "oaDeliveryDate"
+        , vtdp."appDate" AS "appDate"
+        , vtdp."receiptDate" AS "receiptDate"
+        , vtdp."appCompleteDate" AS "appCompleteDate"
+        , vtdp."divDeadline" AS "divDeadline"
+        , vtdp."divAppDate" AS "divAppDate"
+        , vtdp."autoProtectionDate" AS "autoProtectionDate"
+        , vtdp."authoritySubmissionDate" AS "authoritySubmissionDate"
+        , vtdp."hagueDeliveryDate" AS "hagueDeliveryDate"
+        , vtdp."provisionalAppDate" AS "provisionalAppDate"
+        , vtdp."firstAppDate" AS "firstAppDate"
+        , vtdp."originalAppDate" AS "originalAppDate"
+        , vtdp."originalRegDate" AS "originalRegDate"
+        , vtdp."reAppDate" AS "reAppDate"
+        , vtdp."globalAppDate" AS "globalAppDate"
+        , vtdp."parentRegAppDate" AS "parentRegAppDate"
+        , vtdp."npe20Deadline" AS "npe20Deadline"
+        , vtdp."entry20CompleteDate" AS "entry20CompleteDate"
+        , vtdp."npe30Deadline" AS "npe30Deadline"
+        , vtdp."entry30CompleteDate" AS "entry30CompleteDate"
+        , vtdp."filingFeeDeadline" AS "filingFeeDeadline"
+        , vtdp."filingFeePayDate" AS "filingFeePayDate"
+        , vtdp."isaReceiptDate" AS "isaReceiptDate"
+        , vtdp."isrReportDate" AS "isrReportDate"
+        , vtdp."ipeDeadline" AS "ipeDeadline"
+        , vtdp."ipeRequestDate" AS "ipeRequestDate"
+        , vtdp."ipeReportDate" AS "ipeReportDate"
+        , vtdp."intlReceiptDate" AS "intlReceiptDate"
+        , vtdp."intlPubDate" AS "intlPubDate"
+        , vtdp."examRequestDeadline" AS "examRequestDeadline", vtdp."examRequestDeadline" AS "examLimitDate"
+        , vtdp."examRequestOrderDate" AS "examRequestOrderDate"
+        , vtdp."examRequestDate" AS "examRequestDate"
+        , vtdp."pubDate" AS "pubDate"
+        , vtdp."announcementDate" AS "announcementDate"
+        , vtdp."announcementDecisionDate" AS "announcementDecisionDate"
+        , vtdp."amendNoticeDate" AS "amendNoticeDate"
+        , vtdp."amendDeadline" AS "amendDeadline"
+        , vtdp."amendSubmitDate" AS "amendSubmitDate"
+        , vtdp."claimAmendDate" AS "claimAmendDate"
+        , vtdp."abandonOrderDate" AS "abandonOrderDate"
+        , vtdp."abandonReceiptDate" AS "abandonReceiptDate"
+        , vtdp."abandonDate" AS "abandonDate"
+        , vtdp."deemedWithdrawalReceiptDate" AS "deemedWithdrawalReceiptDate"
+        , vtdp."deemedWithdrawalDate" AS "deemedWithdrawalDate"
+--         , vtdp."kipoDelayDays" AS "kipoDelayDays"
+        , vtdp."rightPeriod" AS "rightPeriod"
+        , vtdp."regDecisionDate" AS "regDecisionDate"
+        , vtdp."regReceiptDate" AS "regReceiptDate"
+        , vtdp."regNormalDeadline" AS "regNormalDeadline", vtdp."regNormalDeadline" AS "annuityLimitDate"
+        , vtdp."regGraceDeadline" AS "regGraceDeadline"
+        , vtdp."regOrderDate" AS "regOrderDate"
+        , vtdp."regPaymentDate" AS "regPaymentDate", vtdp."regPaymentDate" AS "annuityPayDate"
+        , vtdp."regDate" AS "regDate"
+        , vtdp."regAnnounceDate" AS "regAnnounceDate"
+        , vtdp."renewalDeadline" AS "renewalDeadline", vtdp."renewalDeadline" AS "renewLimitDate"
+        , vtdp."epAnnouncementDate" AS "epAnnouncementDate"
+        , vtdp."searchReceiptDate" AS "searchReceiptDate"
+        , vtdp."searchReportDate" AS "searchReportDate"
+        , vtdp."annuityOrderDate" AS "annuityOrderDate"
+        , vtdp."standardDeadline" AS "standardDeadline"
+        , vtdp."penaltyDeadline" AS "penaltyDeadline"
+        , vtdp."domesticRegDate" AS "domesticRegDate"
+        , vtdp."protectionStartDate" AS "protectionStartDate"
+        , vpp."adminMgr" AS "adminMgr"
+        , vpp."adminMgr_NM" AS "adminMgrNm"
+
+        , vpp."applicantContact" AS "applicantContact"
+        , vpp."applicantContact_NM" AS "applicantContactNm"
+        , vpp."appManager" AS "appManager"
+        , vpp."appManager_NM" AS "appManagerNm"
+        , vpp.attorney AS "attorney"
+        , vpp."attorney_NM" AS "attorneyNm"
+        , vpp."caseMgr" AS "caseMgr"
+        , vpp."caseMgr_NM" AS "caseMgrNm"
+        , vpp."clientContact" AS "clientContact"
+        , vpp."clientContact_NM" AS "clientContactNm"
+        , vpp.inventor AS "inventor"
+        , vpp."inventor_NM" AS "inventorNm"
+        FROM utb_app_mst mst
+        LEFT JOIN utb_app_patent pat ON mst.app_seq = pat.app_seq
+        LEFT JOIN utb_app_design design ON mst.app_seq = design.app_seq
+        LEFT JOIN utb_app_trademark trade ON mst.app_seq = trade.app_seq
+        LEFT JOIN v_total_duedate_pivot vtdp ON mst.app_seq = vtdp.tbl_seq
+        LEFT JOIN v_participant_pivot vpp ON mst.app_seq = vpp.tbl_seq
+
+        <include refid="whereClause"/>
+        ) AS combined
+        WHERE 1=1
+
+        <if test="request.searchCondition != null and request.searchCondition.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.searchCondition" item="cond">
+                    <if test="cond.codeName != null and cond.codeName != ''">
+                        <choose>
+                            <when test="cond.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="cond.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${cond.codeName}" = #{cond.codeValue})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        <if test="request.dateFilters != null and request.dateFilters.size() > 0">
+            <trim prefix="AND (" suffix=")" prefixOverrides="AND |OR ">
+                <foreach collection="request.dateFilters" item="filter">
+                    <if test="filter.dateCode != null and filter.dateCode != ''">
+                        <choose>
+                            <when test="filter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="filter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        (to_char("${filter.dateCode}"::timestamp, 'YYYYMMDD') BETWEEN #{filter.startDate} AND #{filter.endDate})
+                    </if>
+                </foreach>
+            </trim>
+        </if>
+
+        <if test="request.textFilters != null and request.textFilters.size() > 0">
+            <foreach collection="request.textFilters" item="tFilter">
+                <choose>
+                    <when test="tFilter.codeName == 'clientNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appSeq"
+                        AND cm.customer_category_code = 'client'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <when test="tFilter.codeName == 'applicantNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appSeq"
+                        AND cm.customer_category_code = 'applicant'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <when test="tFilter.codeName == 'foreignAgentNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appSeq"
+                        AND cm.customer_category_code = 'foreignAgent'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <when test="tFilter.codeName == 'regMgrNm'">
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        EXISTS (
+                        SELECT 1 FROM utb_customer_mapp cm
+                        JOIN utb_customer c ON cm.office_seq = c.office_seq AND cm.customer_seq = c.customer_seq
+                        WHERE cm.office_seq = #{request.officeSeq}
+                        AND cm.tbl_seq = combined."appSeq"
+                        AND cm.customer_category_code = 'regMgr'
+                        AND cm.del_yn = 'N' AND c.del_yn = 'N'
+                        AND c.client_name_ko ILIKE CONCAT('%', #{tFilter.codeValue}, '%')
+                        )
+                    </when>
+
+                    <otherwise>
+                        <choose>
+                            <when test="tFilter.andOrNOT == 'NOT'"> AND NOT </when>
+                            <when test="tFilter.andOrNOT == 'OR'"> OR </when>
+                            <otherwise> AND </otherwise>
+                        </choose>
+                        ("${tFilter.codeName}" ILIKE CONCAT('%', #{tFilter.codeValue, jdbcType=VARCHAR}, '%'))
+                    </otherwise>
+                </choose>
+            </foreach>
+        </if>
+
+    </select>
+
+<!--    <sql id="basicListWhereClause">-->
+<!--        WHERE   mst.office_seq = #{request.officeSeq}-->
+<!--        AND     del_yn = 'N'-->
+<!--    </sql>-->
+
+    <select id="getBasicChainOverseaAppList" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest">
+    SELECT * FROM (
+        SELECT
+            uem.app_ext_seq AS "appExtSeq"
+            , uam.office_seq AS "officeSeq"
+            , uam.app_seq AS "appSeq"
+            , uam.retain_seq AS "clientRef"
+            , uam.app_state AS "statusCode"
+            , fn_get_cd_nm('APP_STATE', uam.app_state) AS "statusName"
+            , uam.state AS "state"
+            , uam.country_code AS "countryCode"
+            , fn_get_ctry_nm(uam.country_code, 'C', 'KO') AS "countryName"
+            , uam.right_category AS "rightTypeCode"
+            , fn_get_cd_nm('PAT_TYPE', uam.right_category) AS "rightTypeName"
+            , uam.product_class AS "goodsClass"
+            , uam.app_name_ko AS "titleKo"
+            , uam.app_name_en AS "titleEn"
+            , uam.outsourcing_corp_name AS "annuityAgency"
+            , uam.outsourcing_yn AS "outsourcingYn"
+            , uam.give_up_content AS "abandonNote"
+            , uam.app_category AS "appCategoryCode"
+            , fn_get_cd_nm('APP_DIV_TYPE', uam.app_category) AS "appCategoryName"
+            , uam.app_name AS "appName"
+            , uam.grade AS "gradeCode"
+            , fn_get_cd_nm('IP_GRADE_CD', uam.grade) AS "gradeName"
+            , uam.independent_claim AS "independentClaims"
+            , uam.dependent_claim AS "dependentClaims"
+            , uam.drawing_paper_count AS "drawingCount"
+            , uam.ulti_dependent_claim_count AS "finalClaimsCount"
+            , uam.app_no AS "appNo"
+            , uam.first_app_no AS "firstAppNo"
+            , uam.original_app_no AS "originalAppNo"
+            , uam.original_reg_no AS "originalRegNo"
+            , uam.double_app_no AS "dualAppNo"
+            , uam.global_app_no AS "globalAppNo"
+            , uam.global_reg_no AS "globalRegNo"
+            , uam.reg_no AS "regNo"
+            , uam.open_no AS "pubNo"
+            , uam.product_class_app_no AS "productClassAppNo"
+            , uam.re_app_no AS "reAppNo"
+            , uam.public_no AS "announcementNo"
+            , uam.reg_public_no AS "regAnnounceNo"
+            , uam.madrid_no AS "madridAppNo"
+            , uam.ipc_category_code AS "ipcClassification"
+            , uam.external_app_approach AS "externalAppApproach"
+            , uam.year_cnt_management_yn AS "isAnnuityManaged"
+            , uam.external_app_yn AS "externalAppYn"
+            , uam.trademark_research_yn AS "trademarkResearchYn"
+            , uam.renewal_management_yn AS "renewalManagementYn"
+            , uam.interior_preference_assert_yn AS "interiorPreferenceAssertYn"
+            , uam.mandate_paper_submit_yn AS "isPoaSubmitted"
+            , uam.note AS "note"
+            , uam.app_classification AS "categoryCode"
+            , fn_get_cd_nm('NAT_IO_DIV', uam.app_classification) AS "categoryName"
+            , uam.app_kind AS "appTypeCode"
+            , fn_get_cd_nm('APP_TYPE_CD', uam.app_kind) AS "appTypeName"
+            , uam.app_language AS "appLanguageCode"
+            , fn_get_cd_nm('APP_LANG_DIV', uam.app_language) AS "appLanguageName"
+            , uam.proposal_name AS "proposalName"
+            , uam.foreign_app_timing AS "foreignAppTimingCode"
+            , fn_get_cd_nm('APP_SUBMIT_DIV', uam.foreign_app_timing) AS "foreignAppTimingName"
+            , uam.access_code AS "accessCode"
+            , uam.annuity_year AS "annuityYear"
+            , uam.annuity_reduc_rate AS "annuityReducRateCode"
+            , fn_get_cd_nm('REDUC_RATE_CD', uam.annuity_reduc_rate) AS "annuityReducRateName"
+            , uam.spec_page AS "specPage"
+            , uam.oversea_spec_page AS "overseaSpecPage"
+            , uam.figure_count AS "figureCount"
+            , uam.reg_reduction_rate AS "regReductionRateCode"
+            , fn_get_cd_nm('REDUC_RATE_CD', uam.reg_reduction_rate) AS "regReductionRateName"
+            , uam.asset_no AS "ourRef"
+            , uam.agent_ref AS "yourRef"
+            , uam.dept_code AS "deptCode"
+            , uam.trademark_renewal_fee AS "trademarkRenewalFee"
+            , uam.renewal_late_fee AS "renewalLateFee"
+            , uam.next_payment_installment AS "nextPaymentInstallment"
+            , uam.app_route AS "appRouteCode"
+            , fn_get_cd_nm('IP_PROC_TYPE', uam.app_route) AS "appRouteName"
+            , uam.provisional_app_no AS "provisionalAppNo"
+            , uam.parent_reg_app_no AS "parentRegAppNo"
+            , uam.notice_exception_apply AS "noticeExceptionApplyCode"
+            , fn_get_cd_nm('NOTICE_EXCEPTION', uam.notice_exception_apply) AS "noticeExceptionApplyName"
+            , uam.complete_20_yn AS "complete20Yn"
+            , uam.app_20_country AS "app20Country"
+            , uam.complete_30_yn AS "complete30Yn"
+            , uam.app_30_country AS "app30Country"
+            , uam.kr_designation_yn AS "krDesignationYn"
+            , uam.search_result AS "searchResult"
+            , uam.intl_pub_no AS "intlPubNo"
+            , uam.deemed_withdrawal_content AS "deemedWithdrawalContent"
+            , uam.designated AS "designated"
+            , uam.registered_states AS "registeredStates"
+            , uam.subsequent AS "subsequent"
+            , uam.div_app_no AS "divAppNo"
+            , uam.ep_search_result AS "epSearchResult"
+            , uam.wipo_ref_no AS "wipoRefNo"
+            , uam.public_yn AS "publicYn"
+            , uam.deferment_month_count AS "defermentMonthCount"
+            , uam.pub_no AS "pubNo"
+            , uam.authority_ref_no AS "authorityRefNo"
+            , uam.create_user AS "createUser"
+            , uam.create_at AS "createAt"
+            , uam.update_user AS "updateUser"
+            , uam.update_at AS "updateAt"
+            , uam.del_yn AS "delYn"
+
+            , vtdp."appDate" AS "appDate"
+            , vtdp."pubDate" AS "pubDate"
+            , vtdp."announcementDate" AS "announcementDate"
+            , vtdp."regDecisionDate" AS "regDecisionDate"
+            , vtdp."regDate" AS "regDate"
+            , vtdp."receiptDate" AS "receiptDate"
+            , vtdp."appDeadline" AS "appDeadline"
+            , vtdp."npe20Deadline" AS "npe20Deadline"
+            , vtdp."npe30Deadline" AS "npe30Deadline"
+            , vtdp."standardDeadline" AS "standardDeadline"
+            , vtdp."renewalDeadline" AS "renewalDeadline"
+            , vtdp."annuityOrderDate" AS "annuityOrderDate"
+            , vtdp."abandonDate" AS "abandonDate"
+
+            , vpp.inventor AS "inventor"
+            , vpp."inventor_NM" AS "inventorNm"
+            , vpp."adminMgr" AS "adminMgr"
+            , vpp."adminMgr_NM" AS "adminMgrNm"
+            , vpp."caseMgr" AS "caseMgr"
+            , vpp."caseMgr_NM" AS "caseMgrNm"
+            , vpp.attorney AS "attorney"
+            , vpp."attorney_NM" AS "attorneyNm"
+
+        from utb_ext_mapp uem
+        inner join utb_app_ext_mst uaem on uem.app_ext_seq = uaem.app_ext_seq
+        inner join utb_app_mst uam on uem.app_seq = uam.app_seq
+        LEFT JOIN v_total_duedate_pivot vtdp ON uam.app_seq = vtdp.tbl_seq
+        LEFT JOIN v_participant_pivot vpp ON uam.app_seq = vpp.tbl_seq
+        where uem.office_seq = #{request.officeSeq}
+        and uem.app_ext_seq = #{request.tblSeq}
+        and uem.del_yn = 'N'
+        and uaem.del_yn = 'N'
+        and uam.del_yn = 'N'
+    ) AS combined
+    WHERE 1=1
+
+    <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition"/>
+
+    ORDER BY "appSeq" DESC
+    </select>
+
+    <select id="cntBasicChainOverseaAppList" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest">
+        SELECT COUNT(*) FROM (
+            SELECT
+                uem.app_ext_seq AS "appExtSeq"
+                , uam.office_seq AS "officeSeq"
+                , uam.app_seq AS "appSeq"
+                , uam.retain_seq AS "clientRef"
+                , uam.app_state AS "statusCode"
+                , fn_get_cd_nm('APP_STATE', uam.app_state) AS "statusName"
+                , uam.state AS "state"
+                , uam.country_code AS "countryCode"
+                , fn_get_ctry_nm(uam.country_code, 'C', 'KO') AS "countryName"
+                , uam.right_category AS "rightTypeCode"
+                , fn_get_cd_nm('PAT_TYPE', uam.right_category) AS "rightTypeName"
+                , uam.product_class AS "goodsClass"
+                , uam.app_name_ko AS "titleKo"
+                , uam.app_name_en AS "titleEn"
+                , uam.outsourcing_corp_name AS "annuityAgency"
+                , uam.outsourcing_yn AS "outsourcingYn"
+                , uam.give_up_content AS "abandonNote"
+                , uam.app_category AS "appCategoryCode"
+                , fn_get_cd_nm('APP_DIV_TYPE', uam.app_category) AS "appCategoryName"
+                , uam.app_name AS "appName"
+                , uam.grade AS "gradeCode"
+                , fn_get_cd_nm('IP_GRADE_CD', uam.grade) AS "gradeName"
+                , uam.independent_claim AS "independentClaims"
+                , uam.dependent_claim AS "dependentClaims"
+                , uam.drawing_paper_count AS "drawingCount"
+                , uam.ulti_dependent_claim_count AS "finalClaimsCount"
+                , uam.app_no AS "appNo"
+                , uam.first_app_no AS "firstAppNo"
+                , uam.original_app_no AS "originalAppNo"
+                , uam.original_reg_no AS "originalRegNo"
+                , uam.double_app_no AS "dualAppNo"
+                , uam.global_app_no AS "globalAppNo"
+                , uam.global_reg_no AS "globalRegNo"
+                , uam.reg_no AS "regNo"
+                , uam.open_no AS "pubNo"
+                , uam.product_class_app_no AS "productClassAppNo"
+                , uam.re_app_no AS "reAppNo"
+                , uam.public_no AS "announcementNo"
+                , uam.reg_public_no AS "regAnnounceNo"
+                , uam.madrid_no AS "madridAppNo"
+                , uam.ipc_category_code AS "ipcClassification"
+                , uam.external_app_approach AS "externalAppApproach"
+                , uam.year_cnt_management_yn AS "isAnnuityManaged"
+                , uam.external_app_yn AS "externalAppYn"
+                , uam.trademark_research_yn AS "trademarkResearchYn"
+                , uam.renewal_management_yn AS "renewalManagementYn"
+                , uam.interior_preference_assert_yn AS "interiorPreferenceAssertYn"
+                , uam.mandate_paper_submit_yn AS "isPoaSubmitted"
+                , uam.note AS "note"
+                , uam.app_classification AS "categoryCode"
+                , fn_get_cd_nm('NAT_IO_DIV', uam.app_classification) AS "categoryName"
+                , uam.app_kind AS "appTypeCode"
+                , fn_get_cd_nm('APP_TYPE_CD', uam.app_kind) AS "appTypeName"
+                , uam.app_language AS "appLanguageCode"
+                , fn_get_cd_nm('APP_LANG_DIV', uam.app_language) AS "appLanguageName"
+                , uam.proposal_name AS "proposalName"
+                , uam.foreign_app_timing AS "foreignAppTimingCode"
+                , fn_get_cd_nm('APP_SUBMIT_DIV', uam.foreign_app_timing) AS "foreignAppTimingName"
+                , uam.access_code AS "accessCode"
+                , uam.annuity_year AS "annuityYear"
+                , uam.annuity_reduc_rate AS "annuityReducRateCode"
+                , fn_get_cd_nm('REDUC_RATE_CD', uam.annuity_reduc_rate) AS "annuityReducRateName"
+                , uam.spec_page AS "specPage"
+                , uam.oversea_spec_page AS "overseaSpecPage"
+                , uam.figure_count AS "figureCount"
+                , uam.reg_reduction_rate AS "regReductionRateCode"
+                , fn_get_cd_nm('REDUC_RATE_CD', uam.reg_reduction_rate) AS "regReductionRateName"
+                , uam.asset_no AS "ourRef"
+                , uam.agent_ref AS "yourRef"
+                , uam.dept_code AS "deptCode"
+                , uam.trademark_renewal_fee AS "trademarkRenewalFee"
+                , uam.renewal_late_fee AS "renewalLateFee"
+                , uam.next_payment_installment AS "nextPaymentInstallment"
+                , uam.app_route AS "appRouteCode"
+                , fn_get_cd_nm('IP_PROC_TYPE', uam.app_route) AS "appRouteName"
+                , uam.provisional_app_no AS "provisionalAppNo"
+                , uam.parent_reg_app_no AS "parentRegAppNo"
+                , uam.notice_exception_apply AS "noticeExceptionApplyCode"
+                , fn_get_cd_nm('NOTICE_EXCEPTION', uam.notice_exception_apply) AS "noticeExceptionApplyName"
+                , uam.complete_20_yn AS "complete20Yn"
+                , uam.app_20_country AS "app20Country"
+                , uam.complete_30_yn AS "complete30Yn"
+                , uam.app_30_country AS "app30Country"
+                , uam.kr_designation_yn AS "krDesignationYn"
+                , uam.search_result AS "searchResult"
+                , uam.intl_pub_no AS "intlPubNo"
+                , uam.deemed_withdrawal_content AS "deemedWithdrawalContent"
+                , uam.designated AS "designated"
+                , uam.registered_states AS "registeredStates"
+                , uam.subsequent AS "subsequent"
+                , uam.div_app_no AS "divAppNo"
+                , uam.ep_search_result AS "epSearchResult"
+                , uam.wipo_ref_no AS "wipoRefNo"
+                , uam.public_yn AS "publicYn"
+                , uam.deferment_month_count AS "defermentMonthCount"
+                , uam.pub_no AS "pubNo"
+                , uam.authority_ref_no AS "authorityRefNo"
+                , uam.create_user AS "createUser"
+                , uam.create_at AS "createAt"
+                , uam.update_user AS "updateUser"
+                , uam.update_at AS "updateAt"
+                , uam.del_yn AS "delYn"
+
+                , vtdp."appDate" AS "appDate"
+                , vtdp."pubDate" AS "pubDate"
+                , vtdp."announcementDate" AS "announcementDate"
+                , vtdp."regDecisionDate" AS "regDecisionDate"
+                , vtdp."regDate" AS "regDate"
+                , vtdp."receiptDate" AS "receiptDate"
+                , vtdp."appDeadline" AS "appDeadline"
+                , vtdp."npe20Deadline" AS "npe20Deadline"
+                , vtdp."npe30Deadline" AS "npe30Deadline"
+                , vtdp."standardDeadline" AS "standardDeadline"
+                , vtdp."renewalDeadline" AS "renewalDeadline"
+                , vtdp."annuityOrderDate" AS "annuityOrderDate"
+                , vtdp."abandonDate" AS "abandonDate"
+
+                , vpp.inventor AS "inventor"
+                , vpp."inventor_NM" AS "inventorNm"
+                , vpp."adminMgr" AS "adminMgr"
+                , vpp."adminMgr_NM" AS "adminMgrNm"
+                , vpp."caseMgr" AS "caseMgr"
+                , vpp."caseMgr_NM" AS "caseMgrNm"
+                , vpp.attorney AS "attorney"
+                , vpp."attorney_NM" AS "attorneyNm"
+
+            from utb_ext_mapp uem
+            inner join utb_app_ext_mst uaem on uem.app_ext_seq = uaem.app_ext_seq
+            inner join utb_app_mst uam on uem.app_seq = uam.app_seq
+            LEFT JOIN v_total_duedate_pivot vtdp ON uam.app_seq = vtdp.tbl_seq
+            LEFT JOIN v_participant_pivot vpp ON uam.app_seq = vpp.tbl_seq
+            where uem.office_seq = #{request.officeSeq}
+            and uem.app_ext_seq = #{request.tblSeq}
+            and uem.del_yn = 'N'
+            and uaem.del_yn = 'N'
+            and uam.del_yn = 'N'
+        ) AS combined
+        WHERE 1=1
+
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition"/>
+    </select>
+
+    <!-- 해외 출원 mst 업데이트 쿼리 복구 -->
+    <update id="updateOverseaAppMst">
+        UPDATE utb_app_mst
+        SET
+            app_route = #{req.appRouteCode},
+            right_category = #{req.rightTypeCode},
+            country_code = #{req.countryCode},
+            asset_no = #{req.ourRef},
+            agent_ref = #{req.yourRef},
+            retain_seq = #{req.clientRef},
+            app_state = #{req.statusCode},
+            state = #{req.stateCode},
+            app_no = #{req.appNo},
+            dept_code = #{req.deptName},
+            app_name_ko = #{req.titleKo},
+            app_name_en = #{req.titleEn},
+            grade = #{req.gradeCode},
+            independent_claim = #{req.independentClaims},
+            dependent_claim = #{req.dependentClaims},
+            oversea_spec_page = #{req.overseaSpecPage},
+            spec_page = #{req.specPage},
+            provisional_app_no = #{req.provisionalAppNo},
+            first_app_no = #{req.firstAppNo},
+            original_app_no = #{req.originalAppNo},
+            re_app_no = #{req.reAppNo},
+            global_app_no = #{req.globalAppNo},
+            note = #{req.note},
+            ipc_category_code = #{req.ipcClassification},
+            open_no = #{req.pubNo},
+            public_no = #{req.announcementNo},
+            give_up_content = #{req.abandonNote},
+            ulti_dependent_claim_count = #{req.finalClaimsCount},
+            year_cnt_management_yn = #{req.isAnnuityManaged},
+            reg_no = #{req.regNo},
+            reg_public_no = #{req.regAnnounceNo},
+            next_payment_installment = #{req.nextPaymentInstallment},
+            outsourcing_corp_name = #{req.annuityAgency},
+            product_class = #{req.goodsClass},
+            outsourcing_yn = #{req.outsourcingYn},
+            app_category = #{req.appCategoryCode},
+            app_name = #{req.appName},
+            drawing_paper_count = #{req.drawingCount},
+            original_reg_no = #{req.originalRegNo},
+            parent_reg_app_no = #{req.parentRegAppNo},
+            double_app_no = #{req.dualAppNo},
+            global_reg_no = #{req.globalRegNo},
+            product_class_app_no = #{req.classificAppNo},
+            madrid_no = #{req.madridAppNo},
+            external_app_approach = #{req.externalAppApproach},
+            external_app_yn = #{req.isForeignApp},
+            trademark_research_yn = #{req.isTrademarkResearch},
+            renewal_management_yn = #{req.isRenewalManaged},
+            interior_preference_assert_yn = #{req.hasDomesticPriority},
+            mandate_paper_submit_yn = #{req.isPoaSubmitted},
+            app_classification = #{req.categoryCode},
+            app_kind = #{req.appTypeCode},
+            app_language = #{req.appLanguageCode},
+            proposal_name = #{req.proposal},
+            foreign_app_timing = #{req.foreignAppTimingCode},
+            access_code = #{req.accessCode},
+            annuity_year = #{req.annuityYear},
+            annuity_reduc_rate = #{req.annuityReducRateCode},
+            figure_count = #{req.figureCount},
+            reg_reduction_rate = #{req.regReductionRateCode},
+            trademark_renewal_fee = #{req.trademarkRenewalFee},
+            renewal_late_fee = #{req.renewalLateFee},
+            notice_exception_apply = #{req.noticeExceptionApplyCode},
+            complete_20_yn = #{req.complete20Yn},
+            app_20_country = #{req.app20Country},
+            complete_30_yn = #{req.complete30Yn},
+            app_30_country = #{req.app30Country},
+            kr_designation_yn = #{req.krDesignationYn},
+            search_result = #{req.searchResult},
+            intl_pub_no = #{req.intlPubNo},
+            deemed_withdrawal_content = #{req.deemedWithdrawalContent},
+            designated = #{req.designated},
+            registered_states = #{req.registeredStates},
+            subsequent = #{req.subsequent},
+            div_app_no = #{req.divAppNo},
+            ep_search_result = #{req.epSearchResult},
+            wipo_ref_no = #{req.wipoRefNo},
+            public_yn = #{req.publicYn},
+            deferment_month_count = #{req.defermentMonthCount},
+            pub_no = #{req.pubNo},
+            authority_ref_no = #{req.authorityRefNo},
+            domestic_reg_no = #{req.domesticRegNo},
+            payment_installment = #{req.paymentInstallment},
+            case_classification = '30',
+            kipo_delay_days = #{req.kipoDelayDays},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+</mapper>

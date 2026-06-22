@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : InvoiceMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.cost.repository.db1.CostMapper">
+    <select id="findAllByWork" resultType="kr.co.mindpro.ipms.domain.cost.vo.CostVO">
+        SELECT
+            mst.office_seq,
+            mst.cost_seq,
+            mst.cost_category_code,
+            mst.krw_amount,
+            mst.discount_ratio,
+            mst.cost_remittance_count,
+            COALESCE(vtdp."costRemittanceDate", mst.cost_remittance_date) AS cost_remittance_date,
+            COALESCE(vtdp."requestDate", mst.cost_date) AS cost_date,
+            mst.cost_remittance_yn,
+            mst.cost_fee,
+            mst.remittance_count,
+            mst.payment_div,
+            mst.app_no,
+            mapp.mapping_cost_seq,
+            mapp.tbl_seq,
+            mst.create_user,
+            mst.create_at,
+            mst.update_user,
+            mst.update_at,
+            mst.note,
+            mst.del_yn
+        FROM utb_cost_mst mst
+                 INNER JOIN utb_cost_mapp mapp ON mst.mapping_cost_seq = mapp.mapping_cost_seq
+                 LEFT JOIN v_total_duedate_pivot vtdp ON mst.cost_seq = vtdp.tbl_seq
+        WHERE mapp.tbl_seq = #{tblSeq}
+          AND mapp.office_seq = #{officeSeq}
+          AND mst.del_yn = 'N'
+          AND mapp.del_yn = 'N'
+        ORDER BY mst.create_at DESC
+    </select>
+
+    <select id="findCostList" parameterType="kr.co.mindpro.ipms.domain.cost.vo.CostVO" resultType="kr.co.mindpro.ipms.domain.cost.vo.CostVO">
+        SELECT mst.*, mapp.tbl_seq, mapp.office_seq
+        FROM utb_cost_mst mst
+        INNER JOIN utb_cost_mapp mapp ON mst.mapping_cost_seq = mapp.mapping_cost_seq
+        WHERE mst.del_yn = 'N'
+        AND mapp.del_yn = 'N'
+        <if test="tblSeq != null and tblSeq != ''">
+            AND mapp.tbl_seq = #{tblSeq}
+        </if>
+        <if test="officeSeq != null and officeSeq != ''">
+            AND mapp.office_seq = #{officeSeq}
+        </if>
+        <if test="costCategoryCode != null and costCategoryCode != ''">
+            AND mst.cost_category_code = #{costCategoryCode}
+        </if>
+        ORDER BY mst.create_at DESC
+    </select>
+
+    <select id="getNextCostSeq" resultType="string">
+        SELECT fn_get_dynamic_seq('utb_cost_mst')
+    </select>
+
+    <select id="getNextMappingCostSeq" resultType="string">
+        SELECT fn_get_dynamic_seq('utb_cost_mapp')
+    </select>
+
+    <insert id="insertCostMst" parameterType="kr.co.mindpro.ipms.domain.cost.vo.CostVO">
+        <selectKey keyProperty="costSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_cost_mst')
+        </selectKey>
+        /* 비용 마스터 저장 */
+        INSERT INTO utb_cost_mst (
+        office_seq,
+        cost_seq,
+        cost_category_code,
+        krw_amount,
+        discount_ratio,
+        cost_remittance_count,
+        cost_remittance_date,
+        cost_remittance_yn,
+        remittance_count,
+        cost_fee,
+        payment_div,
+        app_no,
+        cost_date,
+        create_user,
+        create_at,
+        note,
+        del_yn,
+        mapping_cost_seq
+        ) VALUES (
+        #{officeSeq},
+        #{costSeq},
+        #{costCategoryCode},
+        #{krwAmount},
+        #{discountRatio},
+        #{costRemittanceCount},
+        #{costRemittanceDate},
+        #{costRemittanceYn},
+        #{remittanceCount},
+        #{costFee},
+        #{paymentDiv},
+        #{appNo},
+        #{costDate},
+        #{createUser},
+        CURRENT_TIMESTAMP,
+        #{note},
+        'N',
+        #{mappingCostSeq}
+        );
+    </insert>
+
+    <insert id="insertCostMapp" parameterType="kr.co.mindpro.ipms.domain.cost.vo.CostVO" >
+        <selectKey keyProperty="mappingCostSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_cost_mapp')
+        </selectKey>
+        /* 비용 매핑 저장 */
+        INSERT INTO utb_cost_mapp (
+            mapping_cost_seq,
+            office_seq,
+            tbl_seq,
+            cost_seq,
+            create_user,
+            create_at,
+            update_user,
+            update_at,
+            del_yn,
+            cost_category_code
+        ) VALUES (
+             #{mappingCostSeq},
+             #{officeSeq},
+             #{tblSeq},
+             #{costSeq},
+             #{createUser},
+             CURRENT_TIMESTAMP,
+             #{createUser},
+             CURRENT_TIMESTAMP,
+             'N',
+             #{costCategoryCode}
+         );
+    </insert>
+
+    <select id="getAnnuityYearDetail">
+        SELECT
+            mst.office_seq,
+            mst.cost_seq,
+            mst.cost_category_code,
+            mst.krw_amount,
+            mst.discount_ratio,
+            mst.cost_remittance_count,
+            COALESCE(vtdp."costRemittanceDate", mst.cost_remittance_date) AS cost_remittance_date,
+            COALESCE(vtdp."requestDate", mst.cost_date) AS cost_date,
+            mst.cost_remittance_yn,
+            mst.cost_fee,
+            mst.remittance_count,
+            mst.payment_div,
+            mst.app_no,
+            mapp.mapping_cost_seq,
+            mapp.tbl_seq,
+            mapp.office_seq,
+            mst.create_user,
+            mst.create_at,
+            mst.update_user,
+            mst.update_at,
+            mst.note,
+            mst.del_yn
+        FROM utb_cost_mst mst
+                 INNER JOIN utb_cost_mapp mapp ON mst.mapping_cost_seq = mapp.mapping_cost_seq
+                 LEFT JOIN v_total_duedate_pivot vtdp ON mst.cost_seq = vtdp.tbl_seq
+        WHERE mapp.tbl_seq = #{tblSeq}
+          AND mapp.office_seq = #{officeSeq}
+          AND mst.cost_seq = #{costSeq}
+          AND mst.cost_category_code = 'annuityYear'
+          AND mst.del_yn = 'N'
+          AND mapp.del_yn = 'N'
+    </select>
+
+    <select id="getRenewalMngDetail">
+        SELECT
+            mst.office_seq,
+            mst.cost_seq,
+            mst.cost_category_code,
+            mst.krw_amount,
+            mst.discount_ratio,
+            mst.cost_remittance_count,
+            COALESCE(vtdp."costRemittanceDate", mst.cost_remittance_date) AS cost_remittance_date,
+            COALESCE(vtdp."requestDate", mst.cost_date) AS cost_date,
+            mst.cost_remittance_yn,
+            mst.cost_fee,
+            mst.remittance_count,
+            mst.payment_div,
+            mst.app_no,
+            mapp.mapping_cost_seq,
+            mapp.tbl_seq,
+            mapp.office_seq,
+            mst.create_user,
+            mst.create_at,
+            mst.update_user,
+            mst.update_at,
+            mst.note,
+            mst.del_yn
+        FROM utb_cost_mst mst
+                 INNER JOIN utb_cost_mapp mapp ON mst.mapping_cost_seq = mapp.mapping_cost_seq
+                 LEFT JOIN v_total_duedate_pivot vtdp ON mst.cost_seq = vtdp.tbl_seq
+        WHERE mapp.tbl_seq = #{tblSeq}
+          AND mapp.office_seq = #{officeSeq}
+          AND mst.cost_seq = #{costSeq}
+          AND mst.cost_category_code = 'renewalMng'
+          AND mst.del_yn = 'N'
+          AND mapp.del_yn = 'N'
+    </select>
+
+    <update id="deleteCostMstByWork">
+        UPDATE utb_cost_mst
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND mapping_cost_seq IN (
+            SELECT mapping_cost_seq
+            FROM utb_cost_mapp
+            WHERE tbl_seq = #{tblSeq}
+              AND office_seq = #{officeSeq}
+              AND del_yn = 'N'
+        )
+    </update>
+
+
+    <update id="deleteCostMappByWork">
+        UPDATE utb_cost_mapp
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+
+    <update id="updateCostAmount" parameterType="kr.co.mindpro.ipms.domain.cost.vo.CostVO">
+        UPDATE "MP_IPMS_PA".utb_cost_mst
+        SET
+            krw_amount = #{krwAmount},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE cost_seq = #{costSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- costSeq 기준 존재 여부 확인 (null이면 0 반환 → INSERT 분기, 있으면 1 반환 → UPDATE 분기) -->
+    <select id="getDuplicateAnnuityYearCnt">
+        SELECT COUNT(*)
+        FROM utb_cost_mst
+        WHERE office_seq = #{officeSeq}
+          AND cost_seq = #{costSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="getDuplicateRenewalMngCnt">
+        SELECT COUNT(*)
+        FROM utb_cost_mst
+        WHERE office_seq = #{officeSeq}
+          AND cost_seq = #{costSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <!-- (tblSeq, category) 기준으로 기존 mapp의 mapping_cost_seq 조회 (mapp 공유 여부 확인) -->
+    <select id="findMappingCostSeqByTblSeqAndCategory" resultType="string">
+        SELECT mapping_cost_seq
+        FROM utb_cost_mapp
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND cost_category_code = #{costCategoryCode}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+    <update id="updateCostMst">
+        UPDATE utb_cost_mst
+        SET
+            krw_amount = #{krwAmount},
+            discount_ratio = #{discountRatio},
+            cost_remittance_count = #{costRemittanceCount},
+            cost_remittance_date = #{costRemittanceDate},
+            cost_remittance_yn = #{costRemittanceYn},
+            remittance_count = #{remittanceCount},
+            cost_fee = #{costFee},
+            payment_div = #{paymentDiv},
+            app_no = #{appNo},
+            cost_date = #{costDate},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP,
+            note = #{note}
+        WHERE office_seq = #{officeSeq}
+          AND cost_seq = #{costSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <delete id="softDeleteCost">
+        UPDATE utb_cost_mst
+        SET del_yn = 'Y',
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND cost_seq = #{costSeq}
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="softDeleteCostMapp">
+        UPDATE utb_cost_mapp
+        SET del_yn = 'Y',
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND mapping_cost_seq = #{mappingCostSeq}
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="softDeleteCostByList">
+        UPDATE utb_cost_mst
+        SET del_yn = 'Y',
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND cost_seq IN
+        <foreach collection="costSeqList" item="costSeq" open="(" separator="," close=")">
+            #{costSeq}
+        </foreach>
+          AND del_yn = 'N'
+    </delete>
+
+    <update id="softDeleteCostMappByList">
+        UPDATE utb_cost_mapp
+        SET del_yn = 'Y'
+        , update_user = #{updateUser}
+        , update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+        AND tbl_seq = #{tblSeq}
+        AND del_yn = 'N'
+        AND mapping_cost_seq IN
+        <foreach collection="mappingCostSeqList" item="mappingCostSeq" open="(" separator="," close=")">
+            #{mappingCostSeq}
+        </foreach>
+    </update>
+
+    <delete id="hardDeleteCost">
+        DELETE FROM utb_cost_mst
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND cost_seq = #{costSeq}
+    </delete>
+
+    <delete id="hardDeleteCostMapp">
+        DELETE FROM utb_cost_mapp
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND mapping_cost_seq = #{mappingCostSeq}
+    </delete>
+
+    <delete id="hardDeleteCostByList">
+        DELETE FROM utb_cost_mst
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND cost_seq IN
+        <foreach collection="costSeqList" item="costSeq" open="(" separator="," close=")">
+            #{costSeq}
+        </foreach>
+    </delete>
+
+    <delete id="hardDeleteCostMappByList">
+        DELETE FROM utb_cost_mapp
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+          AND mapping_cost_seq IN
+        <foreach collection="mappingCostSeqList" item="mappingCostSeq" open="(" separator="," close=")">
+            #{mappingCostSeq}
+        </foreach>
+    </delete>
+
+</mapper>

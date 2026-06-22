@@ -1,0 +1,943 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.board.repository.db1.BoardMapper">
+
+    <resultMap id="BoardFileResultMap" type="kr.co.mindpro.ipms.domain.board.vo.BoardFileVO">
+        <result property="fileSeq" column="fileSeq"/>
+        <result property="fileName" column="fileName"/>
+        <result property="downloadUrl" column="downloadUrl"/>
+    </resultMap>
+
+    <resultMap id="BoardBackupDataResultMap" type="kr.co.mindpro.ipms.domain.board.vo.BoardMstVO">
+        <id property="boardSeq" column="boardSeq"/>
+        <result property="officeSeq" column="officeSeq"/>
+        <result property="categoryCode" column="categoryCode"/>
+        <result property="categoryCodeName" column="categoryCodeName"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="viewCount" column="viewCount"/>
+        <result property="hasFile" column="hasFile"/>
+        <result property="createUser" column="createUser"/>
+        <result property="createUserName" column="createUserName"/>
+        <result property="createAt" column="createAt"/>
+        <collection property="files" ofType="kr.co.mindpro.ipms.domain.board.vo.BoardFileVO"
+                    select="selectBoardFiles" column="{boardSeq=boardSeq, officeSeq=officeSeq}"/>
+    </resultMap>
+
+    <!-- ===================================================================
+         게시글 등록
+         =================================================================== -->
+    <insert id="insertBoardMst" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardMstVO">
+        <selectKey keyProperty="boardSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_board_mst')
+        </selectKey>
+        INSERT INTO "MP_IPMS_PA".utb_board_mst (
+            board_seq,
+            office_seq,
+            category_code,
+            title,
+            content,
+            view_count,
+            post_status,
+            del_yn,
+            create_user,
+            create_at,
+            is_pinned,
+            pinned_start_at,
+            pinned_end_at
+        ) VALUES (
+            #{boardSeq},
+            #{officeSeq},
+            #{categoryCode},
+            #{title},
+            #{content},
+            0,
+            COALESCE(#{postStatus, jdbcType=VARCHAR}, 'PUBLISHED'),
+            'N',
+            #{createUser},
+            NOW(),
+            #{isPinned, jdbcType=VARCHAR},
+            #{pinnedStartAt, jdbcType=VARCHAR},
+            #{pinnedEndAt, jdbcType=VARCHAR}
+        )
+    </insert>
+
+    <!-- ===================================================================
+         게시글 수정
+         =================================================================== -->
+    <update id="updateBoardMst" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardMstVO">
+        UPDATE "MP_IPMS_PA".utb_board_mst
+        SET
+            category_code   = #{categoryCode},
+            title           = #{title},
+            content         = #{content},
+            post_status     = COALESCE(#{postStatus, jdbcType=VARCHAR}, 'PUBLISHED'),
+            is_pinned       = #{isPinned, jdbcType=VARCHAR},
+            pinned_start_at = #{pinnedStartAt, jdbcType=VARCHAR},
+            pinned_end_at   = #{pinnedEndAt, jdbcType=VARCHAR},
+            update_user     = #{updateUser},
+            update_at       = NOW()
+        WHERE
+            board_seq  = #{boardSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <!-- ===================================================================
+         게시글 단건 조회 (JOIN 사용)
+         =================================================================== -->
+    <select id="findBoardBySeq" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardMstVO">
+        SELECT
+            b.board_seq                                                         AS boardSeq,
+            b.office_seq                                                        AS officeSeq,
+            b.category_code                                                     AS categoryCode,
+            c.board_name                                                        AS categoryCodeName,
+            b.title,
+            b.content,
+            b.view_count                                                        AS viewCount,
+            b.post_status                                                       AS postStatus,
+            b.del_yn                                                            AS delYn,
+            b.create_user                                                       AS createUser,
+            u.user_name_ko                                                      AS createUserName,
+            COALESCE(
+                (SELECT d.dept_name
+                     FROM "MP_IPMS_PA".utb_office_employee e
+                     JOIN "MP_IPMS_PA".utb_dept_mst d ON e.dept_seq = d.dept_seq AND d.del_yn = 'N'
+                     WHERE e.user_mst_seq = u.user_mst_seq
+                       AND e.office_seq   = b.office_seq
+                       AND e.del_yn       = 'N'
+                     LIMIT 1
+                ),
+                u.dept_name
+            )                                                                   AS createUserDeptName,
+            (SELECT CONCAT(fr.repository_url, '/', fm.file_nm)
+                 FROM "MP_IPMS_PA".utb_file_mapp fp
+                 JOIN "MP_IPMS_PA".utb_file_mst fm ON fp.file_seq = fm.file_seq AND fm.del_yn = 'N'
+                 LEFT JOIN "MP_IPMS_PA".utb_file_repository fr ON fm.file_repository_seq = fr.file_repository_seq
+                 WHERE fp.tbl_seq = u.user_info_seq
+                   AND fp.file_category_code = 'profileImage'
+                   AND fp.del_yn = 'N'
+                 ORDER BY fp.create_at DESC LIMIT 1
+            )                                                                   AS createUserProfileImageUrl,
+            b.create_at                                                         AS createAt,
+            b.update_user                                                       AS updateUser,
+            b.update_at                                                         AS updateAt,
+            b.is_pinned                                                         AS isPinned,
+            b.pinned_start_at                                                   AS pinnedStartAt,
+            b.pinned_end_at                                                     AS pinnedEndAt,
+            CASE WHEN EXISTS (
+                SELECT 1 FROM "MP_IPMS_PA".utb_file_mapp p
+                WHERE p.tbl_seq = b.board_seq AND p.del_yn = 'N'
+            ) THEN 'Y' ELSE 'N' END                                            AS hasFile
+        FROM "MP_IPMS_PA".utb_board_mst b
+        LEFT JOIN "MP_IPMS_PA".utb_user_info u ON b.create_user = u.user_info_seq
+        LEFT JOIN "MP_IPMS_PA".utb_board_config_mst c ON b.category_code = c.config_seq
+        WHERE b.board_seq  = #{boardSeq}
+          AND b.office_seq = #{officeSeq}
+          AND b.del_yn     = 'N'
+    </select>
+
+    <!-- ===================================================================
+         게시글 목록 검색 조회
+         =================================================================== -->
+    <select id="selectSearchBoardList"
+            parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest"
+            resultType="kr.co.mindpro.ipms.domain.board.vo.BoardMstVO">
+        SELECT * FROM (
+            SELECT
+                b.board_seq                                                     AS "boardSeq",
+                b.office_seq                                                    AS "officeSeq",
+                b.category_code                                                 AS "categoryCode",
+                c.board_name                                                    AS "categoryCodeName",
+                b.title                                                         AS "title",
+                b.content                                                       AS "content",
+                b.view_count                                                    AS "viewCount",
+                b.create_user                                                   AS "createUser",
+                u.user_name_ko                                                  AS "createUserName",
+                b.create_at                                                     AS "createAt",
+                b.is_pinned                                                     AS "isPinned",
+                b.pinned_start_at                                               AS "pinnedStartAt",
+                b.pinned_end_at                                                 AS "pinnedEndAt",
+                COALESCE(b.post_status, 'PUBLISHED')                           AS "postStatus",
+                CASE WHEN f.tbl_seq IS NOT NULL THEN 'Y' ELSE 'N' END          AS "hasFile",
+                COALESCE(cc.cnt, 0)                                             AS "commentCount"
+            FROM "MP_IPMS_PA".utb_board_mst b
+            LEFT JOIN "MP_IPMS_PA".utb_user_info u ON b.create_user = u.user_info_seq
+            INNER JOIN "MP_IPMS_PA".utb_board_config_mst c ON b.category_code = c.config_seq AND c.del_yn = 'N'
+            LEFT JOIN (
+                SELECT tbl_seq
+                FROM "MP_IPMS_PA".utb_file_mapp
+                WHERE del_yn = 'N'
+                GROUP BY tbl_seq
+            ) f ON f.tbl_seq = b.board_seq
+            LEFT JOIN (
+                SELECT m.board_seq, COUNT(*) AS cnt
+                FROM "MP_IPMS_PA".utb_comment_mapp m
+                INNER JOIN "MP_IPMS_PA".utb_comment cm ON m.comment_seq = cm.comment_seq AND cm.del_yn = 'N'
+                GROUP BY m.board_seq
+            ) cc ON cc.board_seq = b.board_seq
+            LEFT JOIN (
+                SELECT config_seq,
+                       MAX(CASE WHEN (target_type = 'EMPLOYEE' AND ref_seq = #{request.userInfoSeq, jdbcType=VARCHAR})
+                                  OR (target_type = 'DEPT'     AND ref_seq = #{request.userDeptSeq, jdbcType=VARCHAR})
+                                THEN 1 ELSE 0 END) AS has_access
+                FROM "MP_IPMS_PA".utb_board_config_target
+                WHERE target_role = 'READ_AUTH'
+                  AND del_yn      = 'N'
+                GROUP BY config_seq
+            ) perm ON perm.config_seq = b.category_code
+            WHERE b.office_seq = #{request.officeSeq}
+              AND b.del_yn     = 'N'
+              AND (COALESCE(b.post_status, 'PUBLISHED') != 'DRAFT' OR b.create_user = #{request.userInfoSeq, jdbcType=VARCHAR})
+              AND (perm.config_seq IS NULL OR perm.has_access = 1)
+        ) T
+        <where>
+            <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+        </where>
+        ORDER BY T."createAt" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="selectSearchBoardListCount"
+            parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest"
+            resultType="int">
+        SELECT COUNT(*) FROM (
+            SELECT b.board_seq AS "boardSeq",
+                   b.category_code AS "categoryCode",
+                   b.title AS "title",
+                   b.create_user AS "createUser",
+                   u.user_name_ko AS "createUserName",
+                   b.create_at AS "createAt",
+                   COALESCE(b.post_status, 'PUBLISHED') AS "postStatus"
+            FROM "MP_IPMS_PA".utb_board_mst b
+            LEFT JOIN "MP_IPMS_PA".utb_user_info u ON b.create_user = u.user_info_seq
+            INNER JOIN "MP_IPMS_PA".utb_board_config_mst c ON b.category_code = c.config_seq AND c.del_yn = 'N'
+            LEFT JOIN (
+                SELECT config_seq,
+                       MAX(CASE WHEN (target_type = 'EMPLOYEE' AND ref_seq = #{request.userInfoSeq, jdbcType=VARCHAR})
+                                  OR (target_type = 'DEPT'     AND ref_seq = #{request.userDeptSeq, jdbcType=VARCHAR})
+                                THEN 1 ELSE 0 END) AS has_access
+                FROM "MP_IPMS_PA".utb_board_config_target
+                WHERE target_role = 'READ_AUTH'
+                  AND del_yn      = 'N'
+                GROUP BY config_seq
+            ) perm ON perm.config_seq = b.category_code
+            WHERE b.office_seq = #{request.officeSeq}
+              AND b.del_yn     = 'N'
+              AND (COALESCE(b.post_status, 'PUBLISHED') != 'DRAFT' OR b.create_user = #{request.userInfoSeq, jdbcType=VARCHAR})
+              AND (perm.config_seq IS NULL OR perm.has_access = 1)
+        ) T
+        <where>
+            <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+        </where>
+    </select>
+
+    <update id="deleteBoardMst">
+        UPDATE "MP_IPMS_PA".utb_board_mst
+        SET
+            del_yn    = 'Y',
+            update_at = NOW()
+        WHERE board_seq  = #{boardSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="incrementViewCount">
+        UPDATE "MP_IPMS_PA".utb_board_mst
+        SET view_count = view_count + 1
+        WHERE board_seq  = #{boardSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn     = 'N'
+    </update>
+
+
+    <!-- =========================================================================
+         2. 게시판 설정 (Board Selection & Configuration)
+         ========================================================================= -->
+
+    <select id="selectBoardConfigList"
+            parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest"
+            resultType="kr.co.mindpro.ipms.domain.board.vo.BoardConfigVO">
+        SELECT * FROM (
+            SELECT
+                A.config_seq AS "configSeq"
+                ,A.parent_seq AS "parentSeq"
+                ,A.board_type AS "boardType"
+                ,A.board_name AS "boardName"
+                ,A.description AS "description"
+                ,A.share_scope AS "shareScope"
+                ,A.admin_write_only_yn AS "adminWriteOnlyYn"
+                ,A.notice_auth_type AS "noticeAuthType"
+                ,A.new_post_alert_yn AS "newPostAlertYn"
+                ,A.use_reaction_yn AS "useReactionYn"
+                ,A.prefix_tags AS "prefixTags"
+                ,A.view_type AS "viewType"
+                ,A.status AS "status"
+                ,A.disp_ord AS "dispOrd"
+                ,A.del_yn AS "delYn"
+                ,A.create_user AS "createUser"
+                ,A.create_at AS "createAt"
+                ,A.update_user AS "updateUser"
+                ,A.update_at AS "updateAt"
+            FROM "MP_IPMS_PA".utb_board_config_mst A
+            WHERE A.del_yn = 'N'
+              AND A.office_seq = #{request.officeSeq}
+        ) T
+        <where>
+            <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+        </where>
+        ORDER BY T."parentSeq" NULLS FIRST, T."dispOrd" ASC, T."createAt" ASC
+    </select>
+
+    <select id="selectBoardConfig" parameterType="String" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardConfigVO">
+        SELECT
+            A.config_seq
+            ,A.parent_seq
+            ,A.board_type
+            ,A.board_name
+            ,A.description
+            ,A.share_scope
+            ,A.admin_write_only_yn
+            ,A.notice_auth_type
+            ,A.new_post_alert_yn
+            ,A.use_reaction_yn
+            ,A.prefix_tags
+            ,A.view_type
+            ,A.status
+            ,A.disp_ord
+            ,A.del_yn
+            ,A.create_user
+            ,A.create_at
+            ,A.update_user
+            ,A.update_at
+        FROM "MP_IPMS_PA".utb_board_config_mst A
+        WHERE A.config_seq = #{configSeq}
+    </select>
+
+    <insert id="insertBoardConfig" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardConfigVO">
+        <selectKey keyProperty="configSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_board_config_mst')
+        </selectKey>
+        INSERT INTO "MP_IPMS_PA".utb_board_config_mst (
+            config_seq
+            ,office_seq
+            ,parent_seq
+            ,board_type
+            ,board_name
+            ,description
+            ,share_scope
+            ,admin_write_only_yn
+            ,notice_auth_type
+            ,new_post_alert_yn
+            ,use_reaction_yn
+            ,prefix_tags
+            ,view_type
+            ,status
+            ,disp_ord
+            ,del_yn
+            ,create_user
+            ,create_at
+        ) VALUES (
+            #{configSeq}
+            ,#{officeSeq}
+            ,#{parentSeq}
+            ,#{boardType}
+            ,#{boardName}
+            ,#{description}
+            ,#{shareScope}
+            ,#{adminWriteOnlyYn}
+            ,#{noticeAuthType}
+            ,#{newPostAlertYn}
+            ,#{useReactionYn}
+            ,#{prefixTags}
+            ,#{viewType}
+            ,#{status}
+            ,#{dispOrd}
+            ,'N'
+            ,#{createUser}
+            ,NOW()
+        )
+    </insert>
+
+    <update id="updateBoardConfig" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardConfigVO">
+        UPDATE "MP_IPMS_PA".utb_board_config_mst
+        SET
+            parent_seq = #{parentSeq}
+            ,board_type = #{boardType}
+            ,board_name = #{boardName}
+            ,description = #{description}
+            ,share_scope = #{shareScope}
+            ,admin_write_only_yn = #{adminWriteOnlyYn}
+            ,notice_auth_type = #{noticeAuthType}
+            ,new_post_alert_yn = #{newPostAlertYn}
+            ,use_reaction_yn = #{useReactionYn}
+            ,prefix_tags = #{prefixTags}
+            ,view_type = #{viewType}
+            ,status = #{status}
+            ,disp_ord = #{dispOrd}
+            ,update_user = #{updateUser}
+            ,update_at = NOW()
+        WHERE config_seq = #{configSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="updateBoardConfigOrder">
+        UPDATE "MP_IPMS_PA".utb_board_config_mst
+        SET disp_ord = #{dispOrd}
+            ,parent_seq = #{parentSeq, jdbcType=VARCHAR}
+            ,update_user = #{updateUser}
+            ,update_at = NOW()
+        WHERE config_seq = #{configSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="deleteBoardConfig">
+        UPDATE "MP_IPMS_PA".utb_board_config_mst
+        SET del_yn = 'Y'
+            ,update_user = #{updateUser}
+            ,update_at = NOW()
+        WHERE config_seq = #{configSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <!-- 게시판별 최신글 N개 일괄 조회 (ROW_NUMBER 파티셔닝) -->
+    <select id="selectRecentPostsForMain" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardMstVO">
+        SELECT
+            t.boardSeq,
+            t.categoryCode,
+            t.categoryCodeName,
+            t.title,
+            t.viewCount,
+            t.postStatus,
+            t.hasFile,
+            t.commentCount,
+            t.createUser,
+            t.createUserName,
+            t.createAt,
+            t.isPinned,
+            t.pinnedStartAt,
+            t.pinnedEndAt
+        FROM (
+            SELECT
+                b.board_seq                                                     AS boardSeq,
+                b.category_code                                                 AS categoryCode,
+                c.board_name                                                    AS categoryCodeName,
+                b.title,
+                b.view_count                                                    AS viewCount,
+                COALESCE(b.post_status, 'PUBLISHED')                           AS postStatus,
+                b.create_user                                                   AS createUser,
+                u.user_name_ko                                                  AS createUserName,
+                b.create_at                                                     AS createAt,
+                b.is_pinned                                                     AS isPinned,
+                b.pinned_start_at                                               AS pinnedStartAt,
+                b.pinned_end_at                                                 AS pinnedEndAt,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM "MP_IPMS_PA".utb_file_mapp p
+                    WHERE p.tbl_seq = b.board_seq AND p.del_yn = 'N'
+                ) THEN 'Y' ELSE 'N' END                                        AS hasFile,
+                (
+                    SELECT COUNT(*)
+                    FROM "MP_IPMS_PA".utb_comment_mapp m
+                    INNER JOIN "MP_IPMS_PA".utb_comment cm ON m.comment_seq = cm.comment_seq
+                    WHERE m.board_seq = b.board_seq AND cm.del_yn = 'N'
+                )                                                               AS commentCount,
+                ROW_NUMBER() OVER (
+                    PARTITION BY b.category_code
+                    ORDER BY
+                        CASE WHEN b.is_pinned = 'Y'
+                                  AND (b.pinned_end_at IS NULL OR b.pinned_end_at >= TO_CHAR(CURRENT_DATE, 'YYYYMMDD'))
+                             THEN 0 ELSE 1 END ASC,
+                        b.create_at DESC
+                )                                                               AS rn
+            FROM "MP_IPMS_PA".utb_board_mst b
+            LEFT JOIN "MP_IPMS_PA".utb_user_info u ON b.create_user = u.user_info_seq
+            LEFT JOIN "MP_IPMS_PA".utb_board_config_mst c ON b.category_code = c.config_seq
+            WHERE b.office_seq = #{officeSeq}
+              AND b.del_yn = 'N'
+              AND COALESCE(b.post_status, 'PUBLISHED') != 'DRAFT'
+        ) t
+        WHERE t.rn &lt;= #{limit}
+        ORDER BY t.categoryCode,
+                 CASE WHEN t.isPinned = 'Y'
+                           AND (t.pinnedEndAt IS NULL OR t.pinnedEndAt >= TO_CHAR(CURRENT_DATE, 'YYYYMMDD'))
+                      THEN 0 ELSE 1 END ASC,
+                 t.createAt DESC
+    </select>
+
+    <select id="selectBoardMasterList" parameterType="String" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardMasterVO">
+        SELECT
+            M.config_seq
+            ,M.master_user_id
+            ,I.user_name_ko as masterUserName
+            ,M.create_user
+            ,M.create_at
+        FROM "MP_IPMS_PA".utb_board_config_mapp M
+        LEFT OUTER JOIN "MP_IPMS_PA".utb_user_info I
+        ON M.master_user_id = I.user_info_seq
+        WHERE M.config_seq = #{configSeq}
+    </select>
+
+    <delete id="deleteBoardMasters" parameterType="String">
+        DELETE FROM "MP_IPMS_PA".utb_board_config_mapp
+        WHERE config_seq = #{configSeq}
+    </delete>
+
+    <insert id="insertBoardMaster" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardMasterVO">
+        INSERT INTO "MP_IPMS_PA".utb_board_config_mapp (
+            config_seq
+            ,master_user_id
+            ,create_user
+            ,create_at
+        ) VALUES (
+            #{configSeq}
+            ,#{masterUserId}
+            ,#{createUser}
+            ,NOW()
+        )
+    </insert>
+
+
+    <!-- =========================================================================
+         3. 게시판 데이터 백업 (Board Backup)
+         ========================================================================= -->
+
+    <select id="selectBoardBackupList" parameterType="String" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardBackupVO">
+        SELECT
+            A.backup_seq
+            ,A.office_seq
+            ,A.config_seq
+            ,A.board_name
+            ,A.status
+            ,A.file_path
+            ,CONCAT('/api/board/backup/download/', A.backup_seq) as downloadUrl
+            ,A.file_size
+            ,A.file_name
+            ,A.file_seq
+            ,A.del_yn
+            ,A.create_user
+            ,A.create_at
+            ,A.update_user
+            ,A.update_at
+            ,U.user_name_ko as requestUserName
+        FROM "MP_IPMS_PA".utb_board_backup_hist A
+        LEFT OUTER JOIN "MP_IPMS_PA".utb_user_info U ON A.create_user = U.user_info_seq
+        INNER JOIN "MP_IPMS_PA".utb_file_mst B ON A.file_seq = B.file_seq AND B.del_yn = 'N'
+        LEFT JOIN "MP_IPMS_PA".utb_file_repository C ON B.file_repository_seq = C.file_repository_seq AND C.del_yn = 'N'
+        WHERE A.office_seq = #{officeSeq}
+          AND A.del_yn = 'N'
+        ORDER BY A.create_at DESC
+    </select>
+
+    <select id="selectBoardBackup" parameterType="String" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardBackupVO">
+        SELECT
+            A.backup_seq
+            ,A.office_seq
+            ,A.config_seq
+            ,A.board_name
+            ,A.status
+            ,A.file_path
+            ,CONCAT('/api/board/backup/download/', A.backup_seq) as downloadUrl
+            ,A.file_size
+            ,A.file_name
+            ,A.file_seq
+            ,A.del_yn
+            ,A.create_user
+            ,A.create_at
+            ,A.update_user
+            ,A.update_at
+        FROM "MP_IPMS_PA".utb_board_backup_hist A
+        INNER JOIN "MP_IPMS_PA".utb_file_mst B ON A.file_seq = B.file_seq AND B.del_yn = 'N'
+        LEFT JOIN "MP_IPMS_PA".utb_file_repository C ON B.file_repository_seq = C.file_repository_seq AND C.del_yn = 'N'
+        WHERE A.backup_seq = #{backupSeq}
+    </select>
+
+    <insert id="insertBoardBackup" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardBackupVO">
+        <selectKey keyProperty="backupSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_board_backup_hist')
+        </selectKey>
+        INSERT INTO "MP_IPMS_PA".utb_board_backup_hist (
+            backup_seq
+            ,office_seq
+            ,config_seq
+            ,board_name
+            ,status
+            ,del_yn
+            ,create_user
+            ,create_at
+        ) VALUES (
+            #{backupSeq}
+            ,#{officeSeq}
+            ,#{configSeq}
+            ,#{boardName}
+            ,#{status}
+            ,'N'
+            ,#{createUser}
+            ,NOW()
+        )
+    </insert>
+
+    <update id="updateBoardBackupStatus" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardBackupVO">
+        UPDATE "MP_IPMS_PA".utb_board_backup_hist
+        SET
+            status = #{status}
+            ,file_path = #{filePath}
+            ,file_size = #{fileSize}
+            ,file_name = #{fileName}
+            ,file_seq = #{fileSeq}
+            ,update_user = #{updateUser}
+            ,update_at = NOW()
+        WHERE backup_seq = #{backupSeq}
+    </update>
+
+    <update id="deleteBoardBackup">
+        UPDATE utb_board_backup_hist
+        SET del_yn = 'Y'
+            ,update_user = #{updateUser}
+            ,update_at = NOW()
+        WHERE backup_seq = #{backupSeq}
+    </update>
+
+    <!-- =========================================================================
+          4. 게시판 시스템 상세 설정 (Board System Config)
+          ========================================================================= -->
+
+    <select id="selectBoardSystemConfig" parameterType="String" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardSystemConfigVO">
+        SELECT
+            office_seq
+            ,max_file_size
+            ,max_body_size
+            ,trash_retention_days
+            ,allow_master_change_yn
+            ,main_layout_type
+            ,recent_post_count
+            ,new_badge_duration
+            ,show_pin_on_top_yn
+            ,create_user
+            ,create_at
+            ,update_user
+            ,update_at
+        FROM "MP_IPMS_PA".utb_board_system_config
+        WHERE office_seq = #{officeSeq}
+    </select>
+
+    <insert id="upsertBoardSystemConfig" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardSystemConfigVO">
+        INSERT INTO "MP_IPMS_PA".utb_board_system_config (
+            office_seq
+            ,max_file_size
+            ,max_body_size
+            ,trash_retention_days
+            ,allow_master_change_yn
+            ,main_layout_type
+            ,recent_post_count
+            ,new_badge_duration
+            ,show_pin_on_top_yn
+            ,create_user
+            ,create_at
+        ) VALUES (
+            #{officeSeq}
+            ,#{maxFileSize}
+            ,#{maxBodySize}
+            ,#{trashRetentionDays}
+            ,#{allowMasterChangeYn}
+            ,#{mainLayoutType}
+            ,#{recentPostCount}
+            ,#{newBadgeDuration}
+            ,#{showPinOnTopYn}
+            ,#{createUser}
+            ,NOW()
+        )
+        ON CONFLICT (office_seq) DO UPDATE SET
+            max_file_size = EXCLUDED.max_file_size
+            ,max_body_size = EXCLUDED.max_body_size
+            ,trash_retention_days = EXCLUDED.trash_retention_days
+            ,allow_master_change_yn = EXCLUDED.allow_master_change_yn
+            ,main_layout_type = EXCLUDED.main_layout_type
+            ,recent_post_count = EXCLUDED.recent_post_count
+            ,new_badge_duration = EXCLUDED.new_badge_duration
+            ,show_pin_on_top_yn = EXCLUDED.show_pin_on_top_yn
+            ,update_user = #{updateUser}
+            ,update_at = NOW()
+    </insert>
+
+    <select id="selectBoardBackupData" parameterType="kr.co.mindpro.ipms.common.dto.request.BaseSearchRequest" resultMap="BoardBackupDataResultMap">
+        SELECT
+            b.board_seq                                                     AS boardSeq,
+            b.office_seq                                                    AS officeSeq,
+            b.category_code                                                 AS categoryCode,
+            c.board_name                                                   AS categoryCodeName,
+            b.title,
+            b.content,
+            b.view_count                                                    AS viewCount,
+            b.create_user                                                   AS createUser,
+            u.user_name_ko                                                  AS createUserName,
+            b.create_at                                                     AS createAt,
+            CASE WHEN EXISTS (
+                SELECT 1 FROM "MP_IPMS_PA".utb_file_mapp p
+                WHERE p.tbl_seq = b.board_seq AND p.del_yn = 'N'
+            ) THEN 'Y' ELSE 'N' END                                        AS hasFile
+        FROM "MP_IPMS_PA".utb_board_mst b
+        LEFT JOIN "MP_IPMS_PA".utb_user_info u ON b.create_user = u.user_info_seq
+        LEFT JOIN "MP_IPMS_PA".utb_board_config_mst c ON b.category_code = c.config_seq
+        WHERE b.office_seq = #{request.officeSeq}
+          AND b.del_yn     = 'N'
+        ORDER BY b.create_at DESC
+    </select>
+
+    <select id="selectBoardFiles" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardFileVO">
+        SELECT
+            mst.file_seq                                                     AS fileSeq,
+            mst.file_original_nm                                             AS fileName,
+            CONCAT(repo.repository_url, '/', mst.file_nm)                    AS downloadUrl
+        FROM "MP_IPMS_PA".utb_file_mapp mapp
+        INNER JOIN "MP_IPMS_PA".utb_file_mst mst ON mapp.file_seq = mst.file_seq AND mst.del_yn = 'N'
+        LEFT JOIN "MP_IPMS_PA".utb_file_repository repo ON mst.file_repository_seq = repo.file_repository_seq AND repo.del_yn = 'N'
+        WHERE mapp.tbl_seq = #{boardSeq}
+          AND mapp.office_seq = #{officeSeq}
+          AND mapp.del_yn = 'N'
+    </select>
+    <select id="selectUserDeptSeq" resultType="String">
+        SELECT e.dept_seq
+        FROM "MP_IPMS_PA".utb_office_employee e
+        JOIN "MP_IPMS_PA".utb_user_info u ON e.user_mst_seq = u.user_mst_seq
+        WHERE u.user_info_seq = #{userInfoSeq}
+          AND e.office_seq    = #{officeSeq}
+          AND e.del_yn        = 'N'
+        LIMIT 1
+    </select>
+
+    <select id="selectBoardPermissionList" parameterType="String" resultType="kr.co.mindpro.ipms.domain.board.vo.BoardPermissionVO">
+        SELECT
+            target_seq      AS targetSeq
+            ,config_seq     AS configSeq
+            ,target_role    AS targetRole
+            ,target_type    AS targetType
+            ,ref_seq        AS refSeq
+            ,note
+            ,create_user    AS createUser
+            ,create_at      AS createAt
+            ,update_user    AS updateUser
+            ,update_at      AS updateAt
+            ,del_yn         AS delYn
+        FROM "MP_IPMS_PA".utb_board_config_target
+        WHERE config_seq = #{configSeq}
+          AND del_yn = 'N'
+        ORDER BY target_role, target_type, create_at
+    </select>
+
+    <update id="deleteBoardPermissions" parameterType="String">
+        UPDATE "MP_IPMS_PA".utb_board_config_target
+        SET del_yn = 'Y', update_at = NOW()
+        WHERE config_seq = #{configSeq}
+    </update>
+
+    <insert id="insertBoardPermission" parameterType="kr.co.mindpro.ipms.domain.board.vo.BoardPermissionVO">
+        <selectKey keyProperty="targetSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_board_config_target')
+        </selectKey>
+        INSERT INTO "MP_IPMS_PA".utb_board_config_target (
+            target_seq
+            ,config_seq
+            ,target_role
+            ,target_type
+            ,ref_seq
+            ,note
+            ,create_user
+            ,create_at
+            ,del_yn
+        ) VALUES (
+            #{targetSeq}
+            ,#{configSeq}
+            ,#{targetRole}
+            ,#{targetType}
+            ,#{refSeq}
+            ,#{note, jdbcType=VARCHAR}
+            ,#{createUser}
+            ,NOW()
+            ,'N'
+        )
+    </insert>
+
+    <!-- 게시판 데이터 정리 대상 건수 조회 -->
+    <select id="countCleanupTargets" resultType="int">
+        SELECT COUNT(*)
+        FROM "MP_IPMS_PA".utb_board_mst
+        WHERE office_seq = #{officeSeq}
+          AND del_yn = 'N'
+          <if test="configSeq != null and configSeq != 'ALL'">
+          AND config_seq = #{configSeq}
+          </if>
+          AND create_at &lt; NOW() - CAST(#{days} || ' days' AS INTERVAL)
+    </select>
+
+    <!-- 게시판 데이터 정리 실행 (휴지통 이동) -->
+    <update id="executeCleanup">
+        UPDATE "MP_IPMS_PA".utb_board_mst
+        SET
+            del_yn = 'Y'
+            ,update_user = #{updateUser}
+            ,update_at = NOW()
+        WHERE office_seq = #{officeSeq}
+          AND del_yn = 'N'
+          <if test="configSeq != null and configSeq != 'ALL'">
+          AND config_seq = #{configSeq}
+          </if>
+          AND create_at &lt; NOW() - CAST(#{days} || ' days' AS INTERVAL)
+    </update>
+
+
+    <!-- =========================================================================
+         5. 댓글 관리 (Comment)
+         ========================================================================= -->
+
+    <insert id="insertComment" parameterType="kr.co.mindpro.ipms.domain.vo.UtbCommentVO">
+        <selectKey keyProperty="commentSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_comment')
+        </selectKey>
+        INSERT INTO "MP_IPMS_PA".utb_comment (
+            comment_seq
+            ,parent_comment_seq
+            ,comment_type
+            ,comment_content
+            ,comment_code
+            ,del_yn
+            ,create_user
+            ,create_at
+        ) VALUES (
+            #{commentSeq}
+            ,#{parentCommentSeq, jdbcType=VARCHAR}
+            ,#{commentType, jdbcType=VARCHAR}
+            ,#{commentContent}
+            ,#{commentCode, jdbcType=VARCHAR}
+            ,'N'
+            ,#{createUser}
+            ,NOW()
+        )
+    </insert>
+
+    <insert id="insertCommentMapp" parameterType="kr.co.mindpro.ipms.domain.vo.UtbCommentMappVO">
+        INSERT INTO "MP_IPMS_PA".utb_comment_mapp (
+            mapping_comment_seq
+            ,board_category_code
+            ,board_seq
+            ,comment_seq
+            ,del_yn
+            ,create_user
+            ,create_at
+        ) VALUES (
+            NOW()
+            ,#{boardCategoryCode}
+            ,#{boardSeq}
+            ,#{commentSeq}
+            ,'N'
+            ,#{createUser}
+            ,NOW()
+        )
+    </insert>
+
+    <select id="selectComment" resultType="kr.co.mindpro.ipms.domain.vo.UtbCommentVO">
+        SELECT
+            c.comment_seq           AS commentSeq
+            ,c.parent_comment_seq   AS parentCommentSeq
+            ,c.comment_type         AS commentType
+            ,c.comment_content      AS commentContent
+            ,c.comment_code         AS commentCode
+            ,c.del_yn               AS delYn
+            ,c.create_user          AS createUser
+            ,u.user_name_ko         AS createUserName
+            ,COALESCE(
+                 (SELECT d.dept_name
+                      FROM "MP_IPMS_PA".utb_office_employee e
+                      JOIN "MP_IPMS_PA".utb_dept_mst d ON e.dept_seq = d.dept_seq AND d.del_yn = 'N'
+                      WHERE e.user_mst_seq = u.user_mst_seq
+                        AND e.del_yn       = 'N'
+                      LIMIT 1
+                 ),
+                 u.dept_name
+             )                      AS createUserDeptName
+            ,(SELECT CONCAT(fr.repository_url, '/', fm.file_nm)
+                  FROM "MP_IPMS_PA".utb_file_mapp fp
+                  JOIN "MP_IPMS_PA".utb_file_mst fm ON fp.file_seq = fm.file_seq AND fm.del_yn = 'N'
+                  LEFT JOIN "MP_IPMS_PA".utb_file_repository fr ON fm.file_repository_seq = fr.file_repository_seq
+                  WHERE fp.tbl_seq = u.user_info_seq
+                    AND fp.file_category_code = 'profileImage'
+                    AND fp.del_yn = 'N'
+                  ORDER BY fp.create_at DESC LIMIT 1
+             )                      AS createUserProfileImageUrl
+            ,c.create_at            AS createAt
+            ,c.update_user          AS updateUser
+            ,c.update_at            AS updateAt
+        FROM "MP_IPMS_PA".utb_comment c
+        LEFT JOIN "MP_IPMS_PA".utb_user_info u ON c.create_user = u.user_info_seq
+        WHERE c.comment_seq = #{commentSeq}
+          AND c.del_yn = 'N'
+    </select>
+
+    <select id="selectCommentList" resultType="kr.co.mindpro.ipms.domain.vo.UtbCommentVO">
+        SELECT
+            c.comment_seq           AS commentSeq
+            ,c.parent_comment_seq   AS parentCommentSeq
+            ,c.comment_type         AS commentType
+            ,c.comment_content      AS commentContent
+            ,c.comment_code         AS commentCode
+            ,c.del_yn               AS delYn
+            ,c.create_user          AS createUser
+            ,u.user_name_ko         AS createUserName
+            ,COALESCE(
+                 (SELECT d.dept_name
+                      FROM "MP_IPMS_PA".utb_office_employee e
+                      JOIN "MP_IPMS_PA".utb_dept_mst d ON e.dept_seq = d.dept_seq AND d.del_yn = 'N'
+                      WHERE e.user_mst_seq = u.user_mst_seq
+                        AND e.del_yn       = 'N'
+                      LIMIT 1
+                 ),
+                 u.dept_name
+             )                      AS createUserDeptName
+            ,(SELECT CONCAT(fr.repository_url, '/', fm.file_nm)
+                  FROM "MP_IPMS_PA".utb_file_mapp fp
+                  JOIN "MP_IPMS_PA".utb_file_mst fm ON fp.file_seq = fm.file_seq AND fm.del_yn = 'N'
+                  LEFT JOIN "MP_IPMS_PA".utb_file_repository fr ON fm.file_repository_seq = fr.file_repository_seq
+                  WHERE fp.tbl_seq = u.user_info_seq
+                    AND fp.file_category_code = 'profileImage'
+                    AND fp.del_yn = 'N'
+                  ORDER BY fp.create_at DESC LIMIT 1
+             )                      AS createUserProfileImageUrl
+            ,c.create_at            AS createAt
+            ,c.update_user          AS updateUser
+            ,c.update_at            AS updateAt
+        FROM "MP_IPMS_PA".utb_comment c
+        INNER JOIN "MP_IPMS_PA".utb_comment_mapp m ON c.comment_seq = m.comment_seq
+        LEFT JOIN "MP_IPMS_PA".utb_user_info u ON c.create_user = u.user_info_seq
+        WHERE m.board_seq = #{boardSeq}
+        ORDER BY c.create_at ASC
+    </select>
+
+    <update id="updateComment" parameterType="kr.co.mindpro.ipms.domain.vo.UtbCommentVO">
+        UPDATE "MP_IPMS_PA".utb_comment
+        SET
+            comment_content = #{commentContent}
+            ,comment_type   = #{commentType, jdbcType=VARCHAR}
+            ,comment_code   = #{commentCode, jdbcType=VARCHAR}
+            ,update_user    = #{updateUser}
+            ,update_at      = NOW()
+        WHERE comment_seq = #{commentSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="deleteComment">
+        UPDATE "MP_IPMS_PA".utb_comment
+        SET
+            del_yn      = 'Y'
+            ,update_user = #{updateUser}
+            ,update_at   = NOW()
+        WHERE comment_seq = #{commentSeq}
+    </update>
+
+    <update id="deleteCommentMapp">
+        UPDATE "MP_IPMS_PA".utb_comment_mapp
+        SET
+            del_yn      = 'Y'
+            ,update_user = #{updateUser}
+            ,update_at   = NOW()
+        WHERE comment_seq = #{commentSeq}
+    </update>
+
+</mapper>

@@ -1,0 +1,1063 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : InvoiceMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.invoice.repository.db1.InvoiceMapper">
+
+        <update id="updateInvoiceDeleteYn">
+            UPDATE "MP_IPMS_PA".utb_invoice_mst
+            SET del_yn   = 'Y',
+                update_user = #{loginUser},
+                update_date = CURRENT_TIMESTAMP
+            WHERE office_seq  = #{officeSeq}
+              AND invoice_seq = #{invoiceSeq}
+              AND del_yn   = 'N'
+        </update>
+
+        <insert id="insertInvoiceMst" parameterType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceMstVO">
+            <selectKey keyProperty="invoiceSeq" resultType="string" order="BEFORE">
+                SELECT "MP_IPMS_PA".fn_get_dynamic_seq('utb_invoice_mst')
+            </selectKey>
+            INSERT INTO "MP_IPMS_PA".utb_invoice_mst (
+                office_seq,
+                invoice_seq,
+                app_seq,
+                customer_seq,
+                biz_info_seq,
+                invoice_no,
+                invoice_category_code,
+                invoice_type_code,
+                invoice_class_code,
+                our_ref,
+                your_ref,
+                client_ref,
+                dept_name,
+                debit_no,
+                oa_document_code,
+                invoice_content,
+                agent_invoice_category_code,
+                currency_unit,
+                exchange_rate,
+                give_up_content,
+                outsource_content,
+                tax_bill_no,
+                tax_bill_category_code,
+                tax_bill_type_code,
+                in_out_type,
+                case_classification,
+                create_user,
+                create_at,
+                update_user,
+                update_at,
+                del_yn,
+                note,
+                "foreign_agent",
+                "client"
+            ) VALUES (
+                         #{officeSeq},
+                         #{invoiceSeq},
+                         #{appSeq},
+                         #{customerSeq},
+                         #{bizInfoSeq},
+                         #{invoiceNo},
+                         #{invoiceCategoryCode},
+                         #{invoiceTypeCode},
+                         #{invoiceClassCode},
+                         #{ourRef},
+                         #{yourRef},
+                         #{clientRef},
+                         #{deptName},
+                         #{debitNo},
+                         #{oaDocument},
+                         #{invoiceContent},
+                         #{agentInvoiceCategoryCode},
+                         #{currencyUnit},
+                         #{exchangeRate},
+                         #{giveUpContent},
+                         #{outsourceContent},
+                         #{taxBillNo},
+                         #{taxBillCategoryCode},
+                         #{taxBillTypeCode},
+                         #{inOutType},
+                         COALESCE(#{caseCategoryCode},
+                             CASE
+                                 WHEN #{inOutType} = 'INV' THEN '60'
+                                 WHEN #{inOutType} = 'INV_INC' THEN '70'
+                                 WHEN #{inOutType} = 'INV_OUT' THEN '80'
+                                 ELSE '00'
+                             END),
+                         #{createUser},
+                         CURRENT_TIMESTAMP,
+                         #{updateUser},
+                         CURRENT_TIMESTAMP,
+                         'N',
+                         #{note},
+                         #{foreignAgent},
+                         #{client}
+                     )
+        </insert>
+    <update id="updateInvoiceMst" parameterType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceMstVO">
+        UPDATE "MP_IPMS_PA".utb_invoice_mst
+        <set>
+            <if test="appSeq != null">app_seq = #{appSeq},</if>
+            <if test="customerSeq != null">customer_seq = #{customerSeq},</if>
+            <if test="bizInfoSeq != null">biz_info_seq = #{bizInfoSeq},</if>
+            <if test="invoiceNo != null">invoice_no = #{invoiceNo},</if>
+            <if test="invoiceCategoryCode != null">invoice_category_code = #{invoiceCategoryCode},</if>
+            <if test="invoiceTypeCode != null">invoice_type_code = #{invoiceTypeCode},</if>
+            <if test="invoiceClassCode != null">invoice_class_code = #{invoiceClassCode},</if>
+            <if test="ourRef != null">our_ref = #{ourRef},</if>
+            <if test="yourRef != null">your_ref = #{yourRef},</if>
+            <if test="clientRef != null">client_ref = #{clientRef},</if>
+            <if test="deptName != null">dept_name = #{deptName},</if>
+            <if test="debitNo != null">debit_no = #{debitNo},</if>
+            <if test="oaDocument != null">oa_document_code = #{oaDocument},</if>
+            <if test="invoiceContent != null">invoice_content = #{invoiceContent},</if>
+            <if test="agentInvoiceCategoryCode != null">agent_invoice_category_code = #{agentInvoiceCategoryCode},</if>
+            <if test="currencyUnit != null">currency_unit = #{currencyUnit},</if>
+            <if test="exchangeRate != null">exchange_rate = #{exchangeRate},</if>
+            <if test="giveUpContent != null">give_up_content = #{giveUpContent},</if>
+            <if test="outsourceContent != null">outsource_content = #{outsourceContent},</if>
+            <if test="taxBillNo != null">tax_bill_no = #{taxBillNo},</if>
+            <if test="taxBillCategoryCode != null">tax_bill_category_code = #{taxBillCategoryCode},</if>
+            <if test="taxBillTypeCode != null">tax_bill_type_code = #{taxBillTypeCode},</if>
+            <if test="inOutType != null">in_out_type = #{inOutType},</if>
+            <if test="caseCategoryCode != null">case_classification = #{caseCategoryCode},</if>
+            <if test="note != null">note = #{note},</if>
+            <if test="foreignAgent != null">"foreign_agent" = #{foreignAgent},</if>
+            <if test="client != null">"client" = #{client},</if>
+
+            /* 공통 로그 필드 업데이트 */
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE invoice_seq = #{invoiceSeq}
+        AND office_seq = #{officeSeq}
+        AND del_yn = 'N'
+    </update>
+
+    <select id="selectInvoiceMst" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceMstVO">
+        SELECT * FROM utb_invoice_mst
+        WHERE invoice_seq = #{invoiceSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="findInvoiceBySeq" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceMergeVO">
+        SELECT
+            /* [1. Invoice 마스터 기본 정보] */
+            mst.office_seq         AS officeSeq,
+            mst.invoice_seq        AS invoiceSeq,
+            mst.app_seq            AS appSeq,
+            mst.customer_seq       AS customerSeq,
+            mst.biz_info_seq       AS bizInfoSeq,
+            mst.invoice_no         AS invNo,
+            mst.invoice_category_code AS invCategoryCode,
+            fn_get_cd_nm('BILL_DIV_CD', mst.invoice_category_code) AS invCategoryName,
+            mst.invoice_type_code  AS invTypeCode,
+            fn_get_cd_nm('BILL_TYPE_CD', mst.invoice_type_code) AS invTypeName,
+            mst.invoice_class_code AS invClassCode,
+            fn_get_cd_nm('BILL_EVENT_DIV', mst.invoice_class_code) AS invClassName,
+            mst.client_ref         AS clientRef,
+
+            mst.debit_no           AS debitNo,
+            mst.oa_document_code   AS oaDocument,
+            mst.invoice_content    AS invContent,
+            mst.agent_invoice_category_code AS agentInvCategoryCode,
+            fn_get_cd_nm('AGENT_TYPE', mst.agent_invoice_category_code) AS agentInvCategoryName,
+            mst.currency_unit      AS currencyUnitCode,
+            fn_get_cd_nm('CURRENCY_TYPE', mst.currency_unit) AS currencyUnitName,
+            mst.exchange_rate      AS exchangeRate,
+            mst.give_up_content    AS abandonContent,
+            mst.outsource_content  AS outsourceContent,
+            mst.tax_bill_no        AS taxBillNo,
+            mst.tax_bill_category_code    AS taxBillCategoryCode,
+            fn_get_cd_nm('TAX_STMT_DIV', mst.tax_bill_category_code) AS taxBillCategoryName,
+            mst.tax_bill_type_code        AS taxBillTypeCode,
+            fn_get_cd_nm('TAXBILL_TYPE', mst.tax_bill_type_code) AS taxBillTypeName,
+            mst.note               AS note,
+
+            /* [2. Invoice 관련 날짜 정보 - to_char 적용] */
+            to_char(due."invDate", 'YYYYMMDD')          AS invDate,
+            to_char(due."invSendDate", 'YYYYMMDD')      AS invSendDate,
+            to_char(due."taxBillDate", 'YYYYMMDD')      AS taxBillDate,
+            to_char(due."abandonDate", 'YYYYMMDD')      AS abandonDate,
+            to_char(due."govFeePayDate", 'YYYYMMDD')    AS govFeePayDate,
+            to_char(due."agentInvDate", 'YYYYMMDD')     AS agentInvDate,
+            to_char(due."debitReceiptDate", 'YYYYMMDD') AS debitReceiptDate,
+            to_char(due."exchangeRateDate", 'YYYYMMDD') AS exchangeRateDate,
+            to_char(due."vatPayDate", 'YYYYMMDD')       AS vatPayDate,
+            to_char(due."outsourceDate", 'YYYYMMDD')    AS outsourceDate,
+            to_char(due."perfDate", 'YYYYMMDD')         AS perfDate,
+
+            /* [3. Invoice 관련 사람 정보] */
+            pp."invMgr"             AS invMgr,
+            pp."invMgr_NM"          AS invMgrName,
+--             pp."adminMgr"           AS adminMgr,
+--             pp."adminMgr_NM"        AS adminMgrName,
+--             pp."caseMgr"            AS caseMgr,
+--             pp."caseMgr_NM"         AS caseMgrName,
+            pp."attorney"           AS attorney,
+            pp."attorney_NM"        AS attorneyName,
+            pp."customerContact"    AS customerContact,
+            pp."customerContact_NM" AS customerContactName,
+            COALESCE(mst."foreign_agent", pp."foreignAgent_NM", pp_app."foreignAgent_NM") AS foreignAgentName,
+
+            pp_app."applicant" AS applicant,
+            pp_app."applicant_NM" AS applicantName,
+
+            COALESCE(pp."client", mst."client", pp_app."client") AS client,
+            COALESCE(mst."client", pp."client_NM", pp_app."client_NM") AS clientName,
+
+            /* [4. Invoice 관련 비용 정보] */
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'govFee')              AS govFee,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'agencyFee')          AS agencyFee,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'vat')                AS vat,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'etcFee')             AS etcFee,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'totalInvAmount')     AS totalInvAmount,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'unpaidAmount')       AS unpaidAmount,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'depAmount')          AS depAmount,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'govFeePayAmount')    AS govFeePayAmount,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'perfAmount')         AS perfAmount,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'abandonAmount')      AS abandonAmount,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'transFee')          AS transFee,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'remitForeignFee')    AS remitForeignFee,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'remitKrwFee')        AS remitKrwFee,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'outsourceCost')      AS outsourceCost,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'outsourceVat')       AS outsourceVat,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'exchangeDiffAmount') AS exchangeDiffAmount,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'krwAmount')          AS krwAmount,
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'foreignCostAmount')  AS foreignCostAmount,
+
+            /* [5. 출원(App) 마스터 정보 및 뷰 조인 정보] */
+            app.app_no             AS appNo,
+            app.app_name_ko        AS titleKo,
+            app.app_name_en        AS titleEn,
+            app.right_category     AS rightTypeCode,
+            fn_get_cd_nm('PAT_TYPE', app.right_category) AS rightTypeName,
+            app.country_code       AS countryCode,
+            fn_get_ctry_nm(app.country_code, 'C', 'KO') AS countryName,
+            app.asset_no           AS ourRef,
+            app.agent_ref          AS yourRef,
+            COALESCE(mst.case_classification, app.app_classification) AS caseCategoryCode,
+            COALESCE(fn_get_cd_nm('CASE_CLASSIFICATION', mst.case_classification), fn_get_cd_nm('NAT_IO_DIV', app.app_classification)) AS caseCategoryName,
+            app.app_route          AS caseCategory,
+            app.reg_no             AS regNo,
+            app.grade              AS grade,
+            app.independent_claim  AS independentClaims,
+            app.dependent_claim    AS dependentClaims,
+            app.drawing_paper_count AS drawingCount,
+            app.figure_count       AS figureCount,
+            app.spec_page          AS specCount,
+            app.oversea_spec_page   AS overseaSpecCount,
+            app.product_class      AS niceClass,
+            app.dept_code           AS deptName,
+            /* 출원 기준 날짜 정보 (due_app 뷰) */
+            to_char(due_app."appDate", 'YYYYMMDD') AS appDate,
+            to_char(due_app."regDate", 'YYYYMMDD') AS regDate,
+
+            /* 출원 기준 사람 정보 (pp_app 뷰) */
+            pp_app."adminMgr"           AS adminMgr,
+            pp_app."adminMgr_NM"        AS adminMgrName,
+            pp_app."caseMgr"            AS caseMgr,
+            pp_app."caseMgr_NM"         AS caseMgrName,
+            /* [6. 기타 조인 상세 (고객/사업자)] */
+            cust.client_name_ko    AS customerName,
+            biz.biz_corp_name      AS bizName,
+            biz.ceo_name           AS bizCeo,
+            biz.biz_reg_no         AS bizRegNo,
+            biz.biz_type           AS bizType,
+            biz.biz_kind           AS bizItem,
+            biz.biz_workplace_no   AS bizWorkplaceNo,
+            biz.biz_addr           AS bizAddr,
+            biz.biz_dept_name      AS bizDeptName,
+            biz.biz_contact_name   AS bizContactName,
+            biz.biz_email          AS bizEmail
+
+        FROM utb_invoice_mst mst
+                 /* 청구서 전용 피벗 조인 */
+                 LEFT JOIN v_total_duedate_pivot due
+                           ON mst.invoice_seq = due.tbl_seq AND mst.office_seq = due.office_seq
+                 LEFT JOIN v_participant_pivot pp
+                           ON mst.invoice_seq = pp.tbl_seq AND mst.office_seq = pp.office_seq
+            /* 출원 마스터 및 출원 전용 피벗 조인 */
+                 LEFT JOIN utb_app_mst app
+                           ON mst.office_seq = app.office_seq AND mst.app_seq = app.app_seq
+                 LEFT JOIN v_total_duedate_pivot due_app
+                           ON app.app_seq = due_app.tbl_seq AND app.office_seq = due_app.office_seq
+                 LEFT JOIN v_participant_pivot pp_app
+                           ON app.app_seq = pp_app.tbl_seq AND app.office_seq = pp_app.office_seq
+            /* 고객/사업자 조인 */
+                 LEFT JOIN utb_customer cust
+                           ON mst.office_seq = cust.office_seq AND mst.customer_seq = cust.customer_seq
+                 LEFT JOIN utb_biz_info biz
+                           ON mst.office_seq = biz.office_seq AND mst.biz_info_seq = biz.biz_info_seq
+
+        WHERE mst.office_seq = #{officeSeq}
+          AND mst.invoice_seq = #{invoiceSeq}
+          AND mst.del_yn = 'N'
+        ORDER BY mst.create_at, mst.update_at DESC
+            LIMIT 1;
+    </select>
+
+
+    <select id="selectInvoiceListByCategory" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceMergeVO">
+        /* [검색 및 표시 필드 전체 복구] */
+        SELECT * FROM (
+        SELECT
+        mst.office_seq         AS "officeSeq",
+        mst.invoice_seq        AS "invoiceSeq",
+        mst.app_seq            AS "appSeq",
+        mst.customer_seq       AS "customerSeq",
+        mst.biz_info_seq       AS "bizInfoSeq",
+        mst.invoice_no         AS "invNo",
+        mst.invoice_category_code AS "invCategoryCode",
+        "MP_IPMS_PA".fn_get_cd_nm('BILL_DIV_CD', mst.invoice_category_code) AS "invCategoryName",
+        mst.invoice_type_code  AS "invTypeCode",
+        "MP_IPMS_PA".fn_get_cd_nm('BILL_TYPE_CD', mst.invoice_type_code) AS "invTypeName",
+        mst.invoice_class_code AS "invClassCode",
+        "MP_IPMS_PA".fn_get_cd_nm('BILL_EVENT_DIV', mst.invoice_class_code) AS "invClassName",
+        mst.client_ref         AS "clientRef",
+        mst.debit_no           AS "debitNo",
+        mst.oa_document_code   AS "oaDocument",
+        mst.invoice_content    AS "invContent",
+        mst.agent_invoice_category_code AS "agentInvCategoryCode",
+        "MP_IPMS_PA".fn_get_cd_nm('AGENT_TYPE', mst.agent_invoice_category_code) AS "agentInvCategoryName",
+        mst.currency_unit      AS "currencyUnitCode",
+        "MP_IPMS_PA".fn_get_cd_nm('CURRENCY_TYPE', mst.currency_unit) AS "currencyUnitName",
+        mst.exchange_rate      AS "exchangeRate",
+        mst.give_up_content    AS "abandonContent",
+        mst.outsource_content  AS "outsourceContent",
+        mst.tax_bill_no        AS "taxBillNo",
+        CASE WHEN mst.tax_bill_no IS NOT NULL THEN 'Y' ELSE 'N' END AS "taxBillYn",
+        mst.case_classification AS "caseClassification",
+        mst.tax_bill_category_code    AS "taxBillCategoryCode",
+        "MP_IPMS_PA".fn_get_cd_nm('TAX_STMT_DIV', mst.tax_bill_category_code) AS "taxBillCategoryName",
+        mst.tax_bill_type_code        AS "taxBillTypeCode",
+        "MP_IPMS_PA".fn_get_cd_nm('TAXBILL_TYPE', mst.tax_bill_type_code) AS "taxBillTypeName",
+        mst.note               AS "note",
+
+        /* 날짜 필드 복구 */
+        to_char(due."invDate", 'YYYYMMDD')          AS "invDate",
+        to_char(due."invSendDate", 'YYYYMMDD')      AS "invSendDate",
+        to_char(due."taxBillDate", 'YYYYMMDD')      AS "taxBillDate",
+        to_char(due."abandonDate", 'YYYYMMDD')      AS "abandonDate",
+        to_char(due."govFeePayDate", 'YYYYMMDD')    AS "govFeePayDate",
+        to_char(due."agentInvDate", 'YYYYMMDD')     AS "agentInvDate",
+        to_char(due."debitReceiptDate", 'YYYYMMDD') AS "debitReceiptDate",
+        to_char(due."exchangeRateDate", 'YYYYMMDD') AS "exchangeRateDate",
+        to_char(due."vatPayDate", 'YYYYMMDD')       AS "vatPayDate",
+        to_char(due."outsourceDate", 'YYYYMMDD')    AS "outsourceDate",
+        to_char(due."perfDate", 'YYYYMMDD')         AS "perfDate",
+
+        /* 사람 필드 복구 */
+        pp."invMgr"             AS "invMgr",
+        pp."invMgr_NM"          AS "invMgrName",
+        pp."attorney_NM"        AS "attorneyNm",
+        pp."customerContact"    AS "customerContact",
+        pp."customerContact_NM" AS "customerContactName",
+        perf.staff_name         AS "perfMgrName",
+        perf.dept_name          AS "perfDeptName",
+
+        /* 비용 필드 전체 복구 */
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'govFee')              AS "govFee",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'agencyFee')          AS "agencyFee",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'vat')                AS "vat",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'etcFee')             AS "etcFee",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'totalInvAmount')     AS "totalInvAmount",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'unpaidAmount')       AS "unpaidAmount",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'depAmount')          AS "depAmount",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'govFeePayAmount')    AS "govFeePayAmount",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'perfAmount')         AS "perfAmount",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'abandonAmount')      AS "abandonAmount",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'transFee')           AS "transFee",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'remitForeignFee')    AS "remitForeignFee",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'remitKrwFee')        AS "remitKrwFee",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'outsourceCost')      AS "outsourceCost",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'outsourceVat')       AS "outsourceVat",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'exchangeDiffAmount') AS "exchangeDiffAmount",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'krwAmount')          AS "krwAmount",
+        "MP_IPMS_PA".fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'foreignCostAmount')  AS "foreignCostAmount",
+
+        /* 출원 및 기타 정보 복구 */
+        app.app_no             AS "appNo",
+        app.app_name_ko        AS "titleKo",
+        app.app_name_en        AS "titleEn",
+        app.right_category     AS "rightTypeCode",
+        "MP_IPMS_PA".fn_get_cd_nm('PAT_TYPE', app.right_category) AS "rightTypeName",
+        app.country_code       AS "countryCode",
+        "MP_IPMS_PA".fn_get_ctry_nm(app.country_code, 'C', 'KO') AS "countryName",
+        app.asset_no           AS "ourRef",
+        app.agent_ref          AS "yourRef",
+        COALESCE(mst.case_classification, app.app_classification) AS "caseCategoryCode",
+        COALESCE("MP_IPMS_PA".fn_get_cd_nm('CASE_CLASSIFICATION', mst.case_classification), "MP_IPMS_PA".fn_get_cd_nm('NAT_IO_DIV', app.app_classification)) AS "caseCategoryName",
+        app.reg_no             AS "regNo",
+        app.dept_code          AS "deptName",
+        to_char(due_app."appDate", 'YYYYMMDD') AS "appDate",
+        to_char(due_app."regDate", 'YYYYMMDD') AS "regDate",
+
+        COALESCE(pp."applicant_NM", pp_app."applicant_NM")   AS "applicantNm",
+        COALESCE(pp."client", mst."client", pp_app."client")      AS "client",
+        COALESCE(mst."client", pp."client_NM", pp_app."client_NM") AS "clientNm",
+        COALESCE(pp."foreignAgent", mst."foreign_agent", pp_app."foreignAgent") AS "foreignAgent",
+        COALESCE(mst."foreign_agent", pp."foreignAgent_NM", pp_app."foreignAgent_NM") AS "foreignAgentName",
+        pp_app."adminMgr_NM"    AS "adminMgrNm",
+        pp_app."caseMgr_NM"     AS "caseMgrNm",
+
+        cust.client_name_ko    AS "customerName",
+        biz.biz_corp_name      AS "bizName",
+        (SELECT to_char(MAX(deposit_send_date), 'YYYYMMDD')
+        FROM "MP_IPMS_PA".utb_invoice_banking
+        WHERE invoice_seq = mst.invoice_seq AND office_seq = mst.office_seq) AS "depositDate",
+        mst.create_at          AS "createAt"
+
+        FROM "MP_IPMS_PA".utb_invoice_mst mst
+        LEFT JOIN "MP_IPMS_PA".utb_app_mst app ON mst.office_seq = app.office_seq AND mst.app_seq = app.app_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot due ON mst.invoice_seq = due.tbl_seq AND mst.office_seq = due.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp ON mst.invoice_seq = pp.tbl_seq AND mst.office_seq = pp.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot due_app ON app.app_seq = due_app.tbl_seq AND app.office_seq = due_app.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp_app ON app.app_seq = pp_app.tbl_seq AND app.office_seq = pp_app.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_customer cust ON mst.office_seq = cust.office_seq AND mst.customer_seq = cust.customer_seq
+        LEFT JOIN "MP_IPMS_PA".utb_biz_info biz ON mst.office_seq = biz.office_seq AND mst.biz_info_seq = biz.biz_info_seq
+        LEFT JOIN (
+            SELECT p.invoice_seq, p.office_seq, u.user_name_ko AS staff_name, fn_get_cd_nm('DEPT_TYPE', p.dept_category_code) AS dept_name
+            FROM "MP_IPMS_PA".utb_performance p
+            LEFT JOIN "MP_IPMS_PA".utb_user_info u ON p.staff = u.user_info_seq
+            WHERE p.del_yn = 'N'
+            ORDER BY p.share_ratio DESC LIMIT 1
+        ) perf ON mst.invoice_seq = perf.invoice_seq AND mst.office_seq = perf.office_seq
+
+        WHERE mst.office_seq = #{request.officeSeq}
+        AND mst.in_out_type = #{inOutType}
+        AND mst.del_yn = 'N'
+        ) AS T
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+
+        ORDER BY T."createAt" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="selectInvoiceListByCategoryCount" resultType="int">
+        SELECT COUNT(*)
+        FROM "MP_IPMS_PA".utb_invoice_mst mst
+        /* 검색 필터에 사용되는 모든 테이블 조인 복구 */
+        LEFT JOIN "MP_IPMS_PA".utb_app_mst app ON mst.office_seq = app.office_seq AND mst.app_seq = app.app_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot due ON mst.invoice_seq = due.tbl_seq AND mst.office_seq = due.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp ON mst.invoice_seq = pp.tbl_seq AND mst.office_seq = pp.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot due_app ON app.app_seq = due_app.tbl_seq AND app.office_seq = due_app.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp_app ON app.app_seq = pp_app.tbl_seq AND app.office_seq = pp_app.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_customer cust ON mst.office_seq = cust.office_seq AND mst.customer_seq = cust.customer_seq
+        LEFT JOIN "MP_IPMS_PA".utb_biz_info biz ON mst.office_seq = biz.office_seq AND mst.biz_info_seq = biz.biz_info_seq
+
+        WHERE mst.office_seq = #{request.officeSeq}
+        AND mst.in_out_type = #{inOutType}
+        AND mst.del_yn = 'N'
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+    </select>
+
+
+
+    <select id="selectInvoiceListByCase" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceMergeVO">
+        SELECT
+            /* [1. 기본 정보 및 시퀀스] */
+            mst.invoice_seq        AS "invoiceSeq",
+            mst.office_seq         AS "officeSeq",
+            mst.app_seq            AS "appSeq",
+            mst.invoice_no         AS "invNo",
+            mst.invoice_content    AS "invContent",
+
+            /* [2. 코드 정보 및 명칭] */
+            mst.invoice_category_code AS "invCategoryCode",
+            fn_get_cd_nm('BILL_DIV_CD', mst.invoice_category_code) AS "invCategoryName",
+            COALESCE(mst.case_classification, app.app_classification)   AS "caseCategoryCode",
+            COALESCE(fn_get_cd_nm('CASE_CLASSIFICATION', mst.case_classification), fn_get_cd_nm('NAT_IO_DIV', app.app_classification)) AS "caseCategoryName",
+
+            /* [3. 날짜 정보 - Pivot 뷰 활용] */
+            to_char(due."invDate", 'YYYYMMDD')          AS "invDate",
+            to_char(due."taxBillDate", 'YYYYMMDD')      AS "taxBillDate",
+            (SELECT to_char(MAX(deposit_send_date), 'YYYYMMDD')
+             FROM utb_invoice_banking
+             WHERE invoice_seq = mst.invoice_seq
+               AND office_seq = mst.office_seq)         AS "depositDate",
+
+            /* [4. 비용 정보 - 함수 활용] */
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'govFee')              AS "govFee",
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'agencyFee')          AS "agencyFee",
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'vat')                AS "vat",
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'transFee')           AS "transFee",
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'etcFee')             AS "etcFee",
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'totalInvAmount')     AS "totalInvAmount",
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'depAmount')          AS "depAmount",
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'unpaidAmount')       AS "unpaidAmount",
+            fn_get_cost_amount(mst.office_seq, mst.invoice_seq, 'abandonAmount')      AS "abandonAmount"
+
+        FROM utb_invoice_mst mst
+                 /* 출원 마스터 조인 (사건구분 및 기본정보 추출) */
+                 INNER JOIN utb_app_mst app ON mst.office_seq = app.office_seq AND mst.app_seq = app.app_seq
+            /* 날짜 피벗 뷰 조인 */
+                 LEFT JOIN v_total_duedate_pivot due ON mst.invoice_seq = due.tbl_seq AND mst.office_seq = due.office_seq
+
+        WHERE mst.office_seq = #{request.officeSeq}
+          AND mst.app_seq = #{request.tblSeq}  /* 특정 사건번호 필터링 */
+          AND mst.del_yn = 'N'      /* del_yn 아님 주의: 주신 쿼리 기준 del_yn */
+        ORDER BY mst.create_at DESC
+            LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="selectInvoiceListByCaseCount" resultType="int">
+        SELECT COUNT(*)
+        FROM utb_invoice_mst
+        WHERE office_seq = #{request.officeSeq}
+          AND app_seq = #{request.tblSeq}
+          AND del_yn
+                  = 'N'
+    </select>
+
+
+    <select id="selectInvoiceClaimList" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceClaimVO">
+        SELECT invoice_claim_seq
+             , invoice_seq
+             , office_seq
+             , cost_category_code
+            ,fn_get_cd_nm('COST_TYPE', cost_category_code) AS costCategoryName
+             , item_content
+              , unit_category_code AS unitCode
+             ,fn_get_cd_nm('COUNT_UNIT_TYPE', unit_category_code) AS unitName
+              , unit_price
+              , quantity
+              , amount
+              , vat_amount
+              , total_amount
+              , note,
+             create_user, create_at, update_user, update_at, del_yn
+        FROM utb_invoice_claim
+        WHERE invoice_seq = #{request.tblSeq}
+          AND office_seq = #{request.officeSeq}
+          AND claim_kind = #{claimKind}
+          AND del_yn = 'N'
+        ORDER BY invoice_claim_seq ASC
+
+            LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="selectClaimDetail" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceClaimVO">
+        SELECT invoice_claim_seq
+               , invoice_seq
+               , office_seq
+              , cost_category_code
+             ,fn_get_cd_nm('COST_TYPE', cost_category_code) AS costCategoryName
+              , item_content
+              , unit_category_code AS unitCode
+             ,fn_get_cd_nm('COUNT_UNIT_TYPE', unit_category_code) AS unitName
+              , unit_price
+             , quantity
+             , amount
+             , vat_amount
+             , total_amount
+             , note,
+               create_user, create_at, update_user, update_at, del_yn
+        FROM utb_invoice_claim
+        WHERE invoice_claim_seq = #{claimSeq} AND office_seq = #{officeSeq} AND del_yn = 'N'
+    </select>
+
+    <insert id="insertInvoiceClaim">
+        <selectKey keyProperty="invoiceClaimSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_invoice_claim')
+        </selectKey>
+        INSERT INTO utb_invoice_claim (
+        invoice_claim_seq, invoice_seq, office_seq, cost_category_code, item_content,
+        unit_price, quantity, amount, vat_amount, total_amount, unit_category_code, note,
+        claim_kind,
+        create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+        #{invoiceClaimSeq}, #{invoiceSeq}, #{officeSeq}, #{costCategoryCode}, #{itemContent},
+        #{unitPrice}, #{quantity}, #{amount}, #{vatAmount}, #{totalAmount},#{unitCode}, #{note},
+              #{claimKind},
+        #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <update id="updateInvoiceClaim">
+        UPDATE utb_invoice_claim
+        SET cost_category_code = #{costCategoryCode},
+            item_content = #{itemContent},
+            unit_price = #{unitPrice},
+            quantity = #{quantity},
+            amount = #{amount},
+            vat_amount = #{vatAmount},
+            total_amount = #{totalAmount},
+            unit_category_code = #{unitCode},
+            note = #{note},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE invoice_claim_seq = #{invoiceClaimSeq} AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="deleteInvoiceClaims">
+        UPDATE utb_invoice_claim
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE invoice_seq = #{invoiceSeq} AND office_seq = #{officeSeq}
+    </update>
+
+    <insert id="insertInvoiceClaimBatch">
+        INSERT INTO utb_invoice_claim (
+        invoice_claim_seq, invoice_seq, office_seq, cost_category_code, item_content,
+        unit_price, quantity, amount, vat_amount, total_amount, unit_category_code, note,
+        create_user, create_at, update_user, update_at, del_yn
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            fn_get_dynamic_seq('utb_invoice_claim'), #{item.invoiceSeq}, #{item.officeSeq}, #{item.costCategoryCode}, #{item.itemContent},
+            #{item.unitPrice}, #{item.quantity}, #{item.amount}, #{item.vatAmount}, #{item.totalAmount}, #{item.unitCode}, #{item.note},
+            #{item.createUser}, CURRENT_TIMESTAMP, #{item.updateUser}, CURRENT_TIMESTAMP, 'N'
+            )
+        </foreach>
+    </insert>
+
+
+
+    <!-- 입출금, 송금      -->
+
+
+    <select id="selectInvoiceBankingListFiltered" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceBankingVO">
+        SELECT
+        b.banking_seq,
+        b.invoice_seq,
+        b.office_seq,
+        b.banking_category,
+        fn_get_cd_nm('BANKING_TYPE', b.banking_category) AS bankingCategoryName, -- 카테고리 명칭 추가
+        b.banking_kind,
+        b.deposit_send_date,
+        b.deposit_check_date,
+        b.deposit_amount,
+        b.deposit_name,
+        b.deposit_bank,
+        b.currency_unit,
+        fn_get_cd_nm('CURRENCY_TYPE', b.currency_unit) AS currencyUnitName,      -- 통화 명칭 추가
+        b.exchange_ratio,
+        b.exchange_amount,
+        b.deposit_fee,
+        b.deposit_way,
+        fn_get_cd_nm('PAY_METHOD_CD', b.deposit_way) AS depositWayName,            -- 송금방식 명칭 추가
+        b.note,
+        b.prepayment_deposit_no,
+        b.general_prepayment_balance,
+        b.general_prepayment_used_amount,
+        b.designated_prepayment_balance,
+        b.designated_prepayment_used_amount,
+        b.create_user,
+        b.create_at,
+        b.update_user,
+        b.update_at
+        FROM "MP_IPMS_PA".utb_invoice_banking b
+        WHERE b.invoice_seq = #{request.tblSeq}
+        AND b.office_seq = #{request.officeSeq}
+        AND b.del_yn = 'N'
+
+        <if test="bankingCategory != null and bankingCategory != ''">
+            AND b.banking_category = #{bankingCategory}
+        </if>
+
+        <choose>
+            <when test="bankingKind != null and bankingKind != ''">
+                AND b.banking_kind = #{bankingKind}
+            </when>
+            <otherwise>
+                AND (b.banking_kind IS NULL OR b.banking_kind != '해외대리인송금')
+            </otherwise>
+        </choose>
+
+        ORDER BY b.deposit_send_date DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="selectBankingDetail" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceBankingVO">
+        SELECT
+            *,
+            fn_get_cd_nm('BANKING_TYPE', banking_category) AS bankingCategoryName,
+            fn_get_cd_nm('CURRENCY_TYPE', currency_unit) AS currencyUnitName,
+            fn_get_cd_nm('PAY_METHOD_CD', deposit_way) AS depositWayName
+        FROM "MP_IPMS_PA".utb_invoice_banking
+        WHERE banking_seq = #{bankingSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+
+    </select>
+
+    <insert id="insertInvoiceBanking">
+        <selectKey keyProperty="bankingSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_invoice_banking')
+        </selectKey>
+        INSERT INTO "MP_IPMS_PA".utb_invoice_banking (
+        banking_seq, invoice_seq, office_seq,
+        banking_category, banking_kind,
+        deposit_send_date, deposit_check_date,
+        deposit_amount, deposit_name, deposit_bank,
+        currency_unit, exchange_ratio, exchange_amount,
+        deposit_fee, deposit_way,
+        note,
+        prepayment_deposit_no,
+        general_prepayment_balance, general_prepayment_used_amount,
+        designated_prepayment_balance, designated_prepayment_used_amount,
+        create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+        #{bankingSeq}, #{invoiceSeq}, #{officeSeq},
+        #{bankingCategory}, #{bankingKind},
+        #{depositSendDate}, #{depositCheckDate},
+        #{depositAmount}, #{depositName}, #{depositBank},
+        #{currencyUnit}, #{exchangeRatio}, #{exchangeAmount},
+        #{depositFee}, #{depositWay},
+        #{note},
+        #{prepaymentDepositNo},
+        COALESCE(#{generalPrepaymentBalance}, 0), COALESCE(#{generalPrepaymentUsedAmount}, 0),
+        COALESCE(#{designatedPrepaymentBalance}, 0), COALESCE(#{designatedPrepaymentUsedAmount}, 0),
+        #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <update id="updateInvoiceBanking">
+        UPDATE "MP_IPMS_PA".utb_invoice_banking
+        SET banking_category  = #{bankingCategory},
+            banking_kind      = #{bankingKind},
+            deposit_send_date = #{depositSendDate},
+            deposit_check_date = #{depositCheckDate},
+            deposit_amount    = #{depositAmount},
+            deposit_name      = #{depositName},
+            deposit_bank      = #{depositBank},
+            currency_unit     = #{currencyUnit},
+            exchange_ratio    = #{exchangeRatio},
+            exchange_amount   = #{exchangeAmount},
+            deposit_fee       = #{depositFee},
+            deposit_way       = #{depositWay},
+            note              = #{note},
+            prepayment_deposit_no             = #{prepaymentDepositNo},
+            general_prepayment_balance        = COALESCE(#{generalPrepaymentBalance}, general_prepayment_balance),
+            general_prepayment_used_amount    = COALESCE(#{generalPrepaymentUsedAmount}, general_prepayment_used_amount),
+            designated_prepayment_balance     = COALESCE(#{designatedPrepaymentBalance}, designated_prepayment_balance),
+            designated_prepayment_used_amount = COALESCE(#{designatedPrepaymentUsedAmount}, designated_prepayment_used_amount),
+            update_user       = #{updateUser},
+            update_at         = CURRENT_TIMESTAMP
+        WHERE banking_seq = #{bankingSeq} AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="deleteInvoiceBankings">
+        UPDATE "MP_IPMS_PA".utb_invoice_banking
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE invoice_seq = #{invoiceSeq} AND office_seq = #{officeSeq}
+    </update>
+
+
+            <!-- 실적분배      -->
+
+    <select id="selectPerformanceList" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoicePerformanceVO">
+        SELECT a.performance_seq          AS "performanceSeq",
+               a.invoice_seq              AS "invoiceSeq",
+               a.office_seq               AS "officeSeq",
+               a.staff                    AS "staff",
+               b.user_name_ko             AS "staffName",
+               a.performance_amount       AS "performanceAmount",
+               a.performance_content      AS "performanceContent",
+               a.dept_category_code       AS "deptCategory",
+               a.performance_category_code AS "performanceCategoryCode",
+               fn_get_cd_nm('PERFORMANCE_TYPE', a.performance_category_code) AS "performanceCategoryName",
+               to_char(a.performance_perf_date, 'YYYYMMDD') AS "performancePerfDate",
+               a.share_ratio              AS "shareRatio",
+               a.note                     AS "note",
+               a.create_user              AS "createUser",
+               a.create_at                AS "createAt",
+               a.update_user              AS "updateUser",
+               a.update_at                AS "updateAt",
+               a.del_yn                   AS "delYn"
+        FROM utb_performance a
+                 LEFT JOIN utb_user_info b ON a.staff = b.user_info_seq
+        WHERE a.invoice_seq = #{invoiceSeq}
+          AND a.office_seq = #{officeSeq}
+          AND a.del_yn = 'N'
+        ORDER BY a.create_at DESC
+            LIMIT #{pageSize} OFFSET #{offSet}
+    </select>
+
+    <select id="selectPerformanceDetail" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoicePerformanceVO">
+        SELECT a.performance_seq          AS "performanceSeq",
+               a.invoice_seq              AS "invoiceSeq",
+               a.office_seq               AS "officeSeq",
+               a.staff                    AS "staff",
+               b.user_name_ko             AS "staffName",
+               a.performance_amount       AS "performanceAmount",
+               a.performance_category_code AS "performanceCategoryCode",
+               fn_get_cd_nm('PERFORMANCE_TYPE', a.performance_category_code) AS "performanceCategoryName",
+               a.dept_category_code       AS "deptCategory",
+               a.performance_content      AS "performanceContent",
+               to_char(a.performance_perf_date, 'YYYYMMDD') AS "performancePerfDate",
+               a.share_ratio              AS "shareRatio",
+               a.note                     AS "note",
+               a.create_user              AS "createUser",
+               a.create_at                AS "createAt",
+               a.update_user              AS "updateUser",
+               a.update_at                AS "updateAt",
+               a.del_yn                   AS "delYn"
+        FROM utb_performance a
+                 LEFT JOIN utb_user_info b ON a.staff = b.user_info_seq
+        WHERE a.performance_seq = #{performanceSeq}
+          AND a.office_seq = #{officeSeq}
+          AND a.del_yn = 'N'
+    </select>
+
+    <insert id="insertPerformance">
+        <selectKey keyProperty="performanceSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_performance')
+        </selectKey>
+        INSERT INTO utb_performance (
+        performance_seq,
+        invoice_seq,
+        office_seq,
+        staff,
+        performance_amount,
+        performance_content,
+        performance_perf_date,
+        performance_category_code,
+        dept_category_code,
+        share_ratio,
+        note,
+        create_user,
+        create_at,
+        update_user,
+        update_at,
+        del_yn
+        ) VALUES (
+        #{performanceSeq}, #{invoiceSeq}, #{officeSeq}, #{staff}, #{performanceAmount}, #{performanceContent},NULLIF(#{performancePerfDate}, '')::timestamptz,
+        #{performanceCategoryCode}, #{deptCategory}, #{shareRatio}, #{note}, #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <update id="updatePerformance">
+        UPDATE utb_performance
+        SET
+            /* 실적 정보 수정 */
+            staff                     = #{staff},
+            performance_category_code  = #{performanceCategoryCode},
+            dept_category_code         = #{deptCategory},
+            performance_content        = #{performanceContent},
+            performance_perf_date      = NULLIF(#{performancePerfDate}, '')::timestamptz,
+
+        /* 금액 및 비율 수정 */
+        performance_amount         = #{performanceAmount},
+            share_ratio                = #{shareRatio},
+            note                       = #{note},
+
+            /* 공통 로그 정보 */
+            update_user                = #{updateUser},
+            update_at                  = CURRENT_TIMESTAMP,
+            del_yn                     = 'N'
+        WHERE performance_seq = #{performanceSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="deletePerformances">
+        UPDATE utb_performance
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP
+        WHERE invoice_seq = #{invoiceSeq} AND office_seq = #{officeSeq}
+    </update>
+
+    <insert id="insertPerformanceBatch">
+        INSERT INTO utb_performance (
+            performance_seq, invoice_seq, office_seq, staff, 
+            performance_category_code, dept_category_code, performance_content, performance_perf_date,
+            performance_amount, share_ratio, note, 
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                fn_get_dynamic_seq('utb_performance'), #{item.invoiceSeq}, #{item.officeSeq}, #{item.staff}, 
+                #{item.performanceCategoryCode}, #{item.deptCategory}, #{item.performanceContent}, NULLIF(#{item.performancePerfDate}, '')::timestamptz,
+                #{item.performanceAmount}, #{item.shareRatio}, #{item.note}, 
+                #{item.createUser}, CURRENT_TIMESTAMP, #{item.updateUser}, CURRENT_TIMESTAMP, 'N'
+            )
+        </foreach>
+    </insert>
+
+
+
+
+
+    <select id="findAppDetailList" resultType="kr.co.mindpro.ipms.domain.invoice.vo.InvoiceMergeVO">
+        SELECT
+        /* [1. 출원 마스터 및 분쟁 정보] */
+        am.app_seq              AS appSeq,
+        am.app_no               AS appNo,
+        am.app_name_ko          AS titleKo,
+        am.app_name_en          AS titleEn,
+        am.asset_no             AS ourRef,
+        am.agent_ref            AS yourRef,
+        am.reg_no               AS regNo,
+        am.product_class        AS niceClass,
+        am.domestic_reg_no      AS domesticRegNo,
+        am.grade                AS grade,
+        am.dept_code             AS deptName,
+        --fn_get_cd_nm('', am.dept_code) AS deptName,
+        am.retain_seq           AS  clientRef,
+        cm.conflict_seq         AS conflictSeq,
+
+        /* [2. 코드/국가 정보] */
+        am.right_category       AS rightTypeCode,
+        fn_get_cd_nm('PAT_TYPE', am.right_category) AS rightTypeName,
+        am.app_classification   AS caseCategoryCode,
+        fn_get_cd_nm('CASE_CLASSIFICATION', am.app_classification) AS caseCategoryName,
+        am.country_code         AS countryCode,
+        fn_get_ctry_nm(am.country_code, 'C', 'KO') AS countryName,
+
+        /* [3. 규격 정보] */
+        am.independent_claim    AS independentClaims,
+        am.dependent_claim      AS dependentClaims,
+        am.drawing_paper_count  AS drawingCount,
+        am.figure_count         AS figureCount,
+        am.spec_page            AS specCount,
+
+        /* [4. 날짜/사람 정보 (피벗 뷰 조인)] */
+        to_char(due."appDate", 'YYYYMMDD') AS appDate,
+        to_char(due."regDate", 'YYYYMMDD') AS regDate,
+        to_char(due."regDecisionDate", 'YYYYMMDD') AS domesticRegDecisionDate,
+        to_char(due."domesticRegDate", 'YYYYMMDD') AS domesticRegDate,
+        to_char(due."pubDate", 'YYYYMMDD') AS pubDate,
+        to_char(due."intlPubDate", 'YYYYMMDD') AS intlRegDate,
+        pp."applicant"          AS applicant,
+        pp."applicant_NM"       AS applicantNm,
+        pp."client"             AS client,
+        pp."client_NM"          AS clientNm,
+        pp."foreignAgent"       AS agent,
+        pp."foreignAgent_NM"    AS agentName,
+        pp."adminMgr"           AS adminMgr,
+        pp."adminMgr_NM"           AS adminMgrNm,
+        pp."caseMgr"           AS caseMgr,
+        pp."caseMgr_NM"           AS caseMgrNm,
+        pp."attorney"           AS attorney,
+        pp."attorney_NM"           AS attorneyNm
+
+        FROM utb_app_mst am
+        LEFT JOIN utb_conflict_mst cm
+        ON am.app_seq = cm.app_seq AND cm.del_yn = 'N'
+        LEFT JOIN v_total_duedate_pivot due
+        ON am.app_seq = due.tbl_seq AND am.office_seq = due.office_seq
+        LEFT JOIN v_participant_pivot pp
+        ON am.app_seq = pp.tbl_seq AND am.office_seq = pp.office_seq
+
+        WHERE am.office_seq = #{request.officeSeq}
+        AND am.del_yn = 'N'
+
+        /* [5. 검색 조건: 리스트 내부 필드 접근] */
+        <if test="request.searchCondition != null and request.searchCondition.size() > 0">
+            <foreach collection="request.searchCondition" item="cond">
+                <if test="(cond.codeName == 'ourRef' or cond.codeName == 'appNo') and cond.codeValue != ''">
+                    AND (
+                        am.app_no ILIKE CONCAT('%', #{cond.codeValue}, '%')
+                        OR am.asset_no ILIKE CONCAT('%', #{cond.codeValue}, '%')
+                        OR cm.asset_no ILIKE CONCAT('%', #{cond.codeValue}, '%')
+                    )
+                </if>
+                <if test="cond.codeName == 'titleKo' and cond.codeValue != ''">
+                    AND am.app_name_ko ILIKE CONCAT('%', #{cond.codeValue}, '%')
+                </if>
+            </foreach>
+        </if>
+
+        /* [6. 정렬 및 페이징] */
+        ORDER BY am.create_at DESC, am.app_seq DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+    <!-- =========================================================================
+         삭제 및 일괄 삭제
+         ========================================================================= -->
+
+    <!-- 마스터 단건 삭제 -->
+    <update id="deleteInvoiceMst">
+        UPDATE utb_invoice_mst
+        SET del_yn = 'Y', 
+            update_user = #{updateUser}, 
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq} AND invoice_seq = #{invoiceSeq}
+    </update>
+
+    <!-- 청구상세 단건 삭제 -->
+    <update id="deleteInvoiceClaim">
+        UPDATE utb_invoice_claim
+        SET del_yn = 'Y', 
+            update_user = #{updateUser}, 
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq} AND invoice_claim_seq = #{claimSeq}
+    </update>
+
+    <!-- 입금내역 단건 삭제 -->
+    <update id="deleteInvoiceBanking">
+        UPDATE utb_invoice_banking
+        SET del_yn = 'Y', 
+            update_user = #{updateUser}, 
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq} AND banking_seq = #{bankingSeq}
+    </update>
+
+    <!-- 실적분배 단건 삭제 -->
+    <update id="deleteInvoicePerformance">
+        UPDATE utb_performance
+        SET del_yn = 'Y', 
+            update_user = #{updateUser}, 
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq} AND performance_seq = #{performanceSeq}
+    </update>
+
+    <!-- 마스터 일괄 삭제 -->
+    <update id="deleteInvoiceList">
+        UPDATE utb_invoice_mst
+        SET del_yn = 'Y', 
+            update_user = #{updateUser}, 
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND invoice_seq IN
+        <foreach collection="invoiceSeqs" item="seq" open="(" separator="," close=")">
+            #{seq}
+        </foreach>
+    </update>
+
+    <!-- 청구상세 일괄 삭제 -->
+    <update id="deleteClaimList">
+        UPDATE utb_invoice_claim
+        SET del_yn = 'Y', 
+            update_user = #{updateUser}, 
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND invoice_claim_seq IN
+        <foreach collection="claimSeqs" item="seq" open="(" separator="," close=")">
+            #{seq}
+        </foreach>
+    </update>
+
+    <!-- 입금내역 일괄 삭제 -->
+    <update id="deleteBankingList">
+        UPDATE utb_invoice_banking
+        SET del_yn = 'Y', 
+            update_user = #{updateUser}, 
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND banking_seq IN
+        <foreach collection="bankingSeqs" item="seq" open="(" separator="," close=")">
+            #{seq}
+        </foreach>
+    </update>
+
+    <!-- 실적분배 일괄 삭제 -->
+    <update id="deletePerformanceList">
+        UPDATE utb_performance
+        SET del_yn = 'Y', 
+            update_user = #{updateUser}, 
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND performance_seq IN
+        <foreach collection="performanceSeqs" item="seq" open="(" separator="," close=")">
+            #{seq}
+        </foreach>
+    </update>
+</mapper>

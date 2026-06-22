@@ -1,0 +1,484 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.system.repository.db1.SystemMapper">
+
+    <select id="findAllMenus" resultType="kr.co.mindpro.ipms.domain.system.vo.MenuVO">
+        SELECT * FROM utb_menu_mst WHERE del_yn = 'N' ORDER BY disp_ord ASC
+    </select>
+
+    <select id="existsMenuCd" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM utb_menu_mst
+            WHERE menu_cd = #{menuCd}
+              AND del_yn = 'N'
+            <if test="excludeMenuSeq != null and excludeMenuSeq != ''">
+              AND menu_seq != #{excludeMenuSeq}
+            </if>
+        )
+    </select>
+
+    <select id="countChildren" resultType="int">
+        SELECT COUNT(*) FROM utb_menu_mst
+        WHERE parent_menu_seq = #{menuSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <!-- ═══ 플랜 관리 (슈퍼어드민) ═══ -->
+
+    <select id="findAllPlans" resultType="kr.co.mindpro.ipms.domain.system.vo.PlanVO">
+        SELECT
+            p.plan_seq, p.plan_cd, p.plan_nm, p.note, p.sort_ord, p.use_yn, p.del_yn,
+            (SELECT COUNT(*) FROM utb_office_mst o
+              WHERE o.plan_seq = p.plan_seq AND o.del_yn = 'N') AS office_count,
+            (SELECT COUNT(DISTINCT ui.user_mst_seq) FROM utb_user_info ui
+              INNER JOIN utb_office_employee oe ON ui.user_mst_seq = oe.user_mst_seq AND oe.del_yn = 'N'
+              INNER JOIN utb_office_mst o ON oe.office_seq = o.office_seq AND o.del_yn = 'N'
+              WHERE o.plan_seq = p.plan_seq AND ui.del_yn = 'N') AS user_count,
+            (SELECT COUNT(*) FROM utb_plan_menu_map pm
+              WHERE pm.plan_seq = p.plan_seq AND pm.use_yn = 'Y' AND pm.del_yn = 'N') AS menu_count
+        FROM utb_plan_mst p
+        WHERE p.del_yn = 'N'
+        ORDER BY p.sort_ord ASC, p.plan_nm ASC
+    </select>
+
+    <!-- 플랜 코드로 seq 조회 (가입 시 기본 플랜 배정용) -->
+    <select id="findPlanSeqByCd" resultType="string">
+        SELECT plan_seq FROM utb_plan_mst
+        WHERE  plan_cd = #{planCd}
+          AND  del_yn  = 'N'
+          AND  use_yn  = 'Y'
+        LIMIT 1
+    </select>
+
+    <insert id="insertPlan" parameterType="kr.co.mindpro.ipms.domain.system.vo.PlanVO">
+        <selectKey keyProperty="planSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_plan_mst')
+        </selectKey>
+        INSERT INTO utb_plan_mst (plan_seq, plan_cd, plan_nm, note, sort_ord, use_yn, del_yn, create_user)
+        VALUES (#{planSeq}, #{planCd}, #{planNm}, #{note}, COALESCE(#{sortOrd}, 0), COALESCE(#{useYn}, 'Y'), 'N', #{createUser})
+    </insert>
+
+    <update id="updatePlan" parameterType="kr.co.mindpro.ipms.domain.system.vo.PlanVO">
+        UPDATE utb_plan_mst
+        SET plan_cd = #{planCd},
+            plan_nm = #{planNm},
+            note = #{note},
+            sort_ord = COALESCE(#{sortOrd}, sort_ord),
+            use_yn = COALESCE(#{useYn}, use_yn),
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE plan_seq = #{planSeq}
+    </update>
+
+    <update id="deletePlan">
+        UPDATE utb_plan_mst SET del_yn = 'Y' WHERE plan_seq = #{planSeq}
+    </update>
+
+    <select id="findPlanAllowedMenuSeqs" resultType="string">
+        SELECT menu_seq FROM utb_plan_menu_map
+        WHERE plan_seq = #{planSeq}
+          AND use_yn = 'Y'
+          AND del_yn = 'N'
+    </select>
+
+    <!-- 슈퍼어드민 전용 메뉴 seq 목록 (방어용) -->
+    <select id="findSuperAdminOnlyMenuSeqs" resultType="string">
+        SELECT menu_seq FROM utb_menu_mst
+        WHERE del_yn = 'N' AND super_admin_only = 'Y'
+    </select>
+
+    <delete id="deletePlanMenus">
+        DELETE FROM utb_plan_menu_map WHERE plan_seq = #{planSeq}
+    </delete>
+
+    <insert id="insertPlanMenu">
+        INSERT INTO utb_plan_menu_map (plan_menu_seq, plan_seq, menu_seq, use_yn, create_user)
+        VALUES (
+            fn_get_dynamic_seq('utb_plan_menu_map'),
+            #{planSeq}, #{menuSeq}, 'Y', #{createUser}
+        )
+    </insert>
+
+    <!-- 플랜에 속한 사무소 목록 -->
+    <select id="findOfficesByPlan" resultType="kr.co.mindpro.ipms.domain.registry.vo.OfficeVO">
+        SELECT office_seq, office_short_name, office_addr, office_tel,
+               office_auth_yn, office_state_code, office_invite_code
+        FROM utb_office_mst
+        WHERE plan_seq = #{planSeq} AND del_yn = 'N'
+        ORDER BY office_short_name ASC
+    </select>
+
+    <!-- 플랜에 속한 사무소들의 사용자 목록 (플랜 → 사무소 → 사용자) — 중복 제거. 정렬은 프론트에서 처리 -->
+    <select id="findUsersByPlan" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT DISTINCT ON (ui.user_mst_seq)
+            ui.user_mst_seq, ui.user_name_ko, ui.user_email, ui.user_mobile_no,
+            oe.office_seq,
+            o.office_short_name,
+            r.role_nm AS role_name
+        FROM utb_user_info ui
+        INNER JOIN utb_office_employee oe ON ui.user_mst_seq = oe.user_mst_seq AND oe.del_yn = 'N'
+        INNER JOIN utb_office_mst o ON oe.office_seq = o.office_seq AND o.del_yn = 'N'
+        LEFT JOIN utb_role_mst r ON r.role_seq = oe.role_seq AND r.del_yn = 'N'
+        WHERE o.plan_seq = #{planSeq}
+          AND ui.del_yn = 'N'
+        ORDER BY ui.user_mst_seq
+    </select>
+
+    <!-- 사무소에 플랜 배정 -->
+    <update id="assignOfficePlan">
+        UPDATE utb_office_mst SET plan_seq = #{planSeq} WHERE office_seq = #{officeSeq}
+    </update>
+
+    <!-- 플랜 없는(= 미배정) 사무소 목록 -->
+    <select id="findOfficesWithoutPlan" resultType="kr.co.mindpro.ipms.domain.registry.vo.OfficeVO">
+        SELECT office_seq, office_short_name, office_addr, office_tel,
+               office_auth_yn, office_state_code, office_invite_code
+        FROM utb_office_mst
+        WHERE (plan_seq IS NULL OR plan_seq = '') AND del_yn = 'N'
+        ORDER BY office_short_name ASC
+    </select>
+
+    <!-- 모든 활성 사무소 + 현재 plan 정보 (재배정용) -->
+    <select id="findAllOfficesWithPlan" resultType="kr.co.mindpro.ipms.domain.registry.vo.OfficeVO">
+        SELECT o.office_seq, o.office_short_name, o.office_addr, o.office_tel,
+               o.office_auth_yn, o.office_state_code, o.office_invite_code,
+               o.plan_seq,
+               p.plan_nm AS current_plan_nm
+        FROM utb_office_mst o
+        LEFT JOIN utb_plan_mst p ON o.plan_seq = p.plan_seq AND p.del_yn = 'N'
+        WHERE o.del_yn = 'N'
+        ORDER BY o.office_short_name ASC
+    </select>
+
+    <insert id="insertMenu" parameterType="kr.co.mindpro.ipms.domain.system.vo.MenuVO">
+        <selectKey keyProperty="menuSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_menu_mst')
+        </selectKey>
+        INSERT INTO utb_menu_mst (menu_seq, menu_cd, menu_nm, parent_menu_seq, menu_url, menu_icon, disp_ord, use_yn, del_yn, disp_type, menu_type, sidebar_yn, super_admin_only)
+        VALUES (#{menuSeq}, #{menuCd}, #{menuNm}, #{parentMenuSeq}, #{menuUrl}, #{menuIcon}, #{dispOrd}, COALESCE(#{useYn}, 'Y'), 'N', COALESCE(#{dispType}, 'GNB'), COALESCE(#{menuType}, 'PAGE'), COALESCE(#{sidebarYn}, 'Y'), COALESCE(#{superAdminOnly}, 'N'))
+    </insert>
+
+    <update id="updateMenu" parameterType="kr.co.mindpro.ipms.domain.system.vo.MenuVO">
+        UPDATE utb_menu_mst
+        SET menu_cd = #{menuCd},
+            menu_nm = #{menuNm},
+            menu_url = #{menuUrl},
+            menu_icon = #{menuIcon},
+            disp_ord = #{dispOrd},
+            use_yn = COALESCE(#{useYn}, use_yn),
+            disp_type = COALESCE(#{dispType}, disp_type),
+            menu_type = COALESCE(#{menuType}, menu_type),
+            sidebar_yn = COALESCE(#{sidebarYn}, sidebar_yn),
+            super_admin_only = COALESCE(#{superAdminOnly}, super_admin_only)
+        WHERE menu_seq = #{menuSeq}
+    </update>
+
+    <!-- 루트의 super_admin_only를 자손 트리 전체에 전파 -->
+    <update id="propagateSuperAdminOnly">
+        WITH RECURSIVE descendants AS (
+            SELECT menu_seq FROM utb_menu_mst WHERE parent_menu_seq = #{rootMenuSeq} AND del_yn = 'N'
+            UNION ALL
+            SELECT m.menu_seq
+            FROM utb_menu_mst m
+            INNER JOIN descendants d ON m.parent_menu_seq = d.menu_seq
+            WHERE m.del_yn = 'N'
+        )
+        UPDATE utb_menu_mst
+        SET super_admin_only = #{value}
+        WHERE menu_seq IN (SELECT menu_seq FROM descendants)
+    </update>
+
+    <update id="updateMenuOrder">
+        UPDATE utb_menu_mst SET disp_ord = #{dispOrd} WHERE menu_seq = #{menuSeq}
+    </update>
+
+    <update id="updateOfficeCodeOrder">
+        UPDATE utb_office_code SET sort_ord = #{sortOrd} WHERE office_code_seq = #{officeCodeSeq}
+    </update>
+
+    <update id="updateDeptOrder">
+        UPDATE utb_dept_mst SET sort_ord = #{sortOrd} WHERE dept_seq = #{deptSeq}
+    </update>
+
+    <update id="updateFormTemplateOrder">
+        UPDATE utb_form_template SET sort_ord = #{sortOrd} WHERE form_template_seq = #{formTemplateSeq}
+    </update>
+
+    <update id="deleteMenu">
+        UPDATE utb_menu_mst SET del_yn = 'Y' WHERE menu_seq = #{menuSeq}
+    </update>
+
+    <!-- 권한 설정 페이지용 (전체) — SUPER_ADMIN(본사 전용), SYSTEM_USER(폐지) 제외 -->
+    <select id="findAllRoles" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleVO">
+        SELECT * FROM utb_role_mst
+        WHERE del_yn = 'N'
+          AND role_type NOT IN ('SUPER_ADMIN', 'SYSTEM_USER')
+          AND (office_seq = #{officeSeq} OR office_seq IS NULL)
+        ORDER BY role_type ASC, role_nm ASC
+    </select>
+
+    <!-- 직원 정보 등 선택용 (사용중인 것만) — SUPER_ADMIN, SYSTEM_USER 제외 -->
+    <select id="findActiveRoles" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleVO">
+        SELECT * FROM utb_role_mst
+        WHERE del_yn = 'N'
+          AND use_yn = 'Y'
+          AND role_type NOT IN ('SUPER_ADMIN', 'SYSTEM_USER')
+          AND (office_seq = #{officeSeq} OR office_seq IS NULL)
+        ORDER BY role_type ASC, role_nm ASC
+    </select>
+
+    <insert id="insertRole" parameterType="kr.co.mindpro.ipms.domain.system.vo.RoleVO">
+        <selectKey keyProperty="roleSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_role_mst')
+        </selectKey>
+        INSERT INTO utb_role_mst (
+            role_seq, role_cd, role_nm, note, office_seq,
+            use_yn, role_type, del_yn
+        ) VALUES (
+            #{roleSeq}, #{roleCd}, #{roleNm}, #{note}, #{officeSeq},
+            COALESCE(#{useYn}, 'Y'), COALESCE(#{roleType}, 'CUSTOM'), 'N'
+        )
+    </insert>
+
+    <update id="updateRole" parameterType="kr.co.mindpro.ipms.domain.system.vo.RoleVO">
+        UPDATE utb_role_mst
+        SET role_nm = #{roleNm},
+            note = #{note},
+            use_yn = #{useYn}
+        WHERE role_seq = #{roleSeq}
+    </update>
+
+    <update id="deleteRole">
+        UPDATE utb_role_mst SET del_yn = 'Y' WHERE role_seq = #{roleSeq}
+    </update>
+
+    <select id="findRoleBySeq" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleVO">
+        SELECT * FROM utb_role_mst WHERE role_seq = #{roleSeq}
+    </select>
+
+    <select id="findAllActiveMenus" resultType="kr.co.mindpro.ipms.domain.system.vo.MenuVO">
+        SELECT * FROM utb_menu_mst WHERE del_yn = 'N' AND use_yn = 'Y' ORDER BY disp_ord ASC
+    </select>
+
+    <!-- [Office 사용자용] 자기 사무소 플랜에 매핑된 메뉴만 (super_admin_only 제외) -->
+    <select id="findMenusByOffice" resultType="kr.co.mindpro.ipms.domain.system.vo.MenuVO">
+        SELECT m.*
+        FROM   utb_menu_mst m
+        INNER JOIN utb_office_mst o
+                ON o.office_seq = #{officeSeq} AND o.del_yn = 'N'
+        INNER JOIN utb_plan_menu_map pm
+                ON pm.plan_seq = o.plan_seq
+               AND pm.menu_seq = m.menu_seq
+               AND pm.use_yn = 'Y' AND pm.del_yn = 'N'
+        WHERE  m.del_yn = 'N' AND m.use_yn = 'Y'
+          AND  COALESCE(m.super_admin_only, 'N') = 'N'
+        ORDER BY m.disp_ord ASC
+    </select>
+
+    <select id="findRoleMenus" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleMenuMapVO">
+        SELECT * FROM utb_role_menu_map WHERE role_seq = #{roleSeq}
+    </select>
+
+    <select id="findAuthorizedMenuCodes" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleMenuMapVO">
+        SELECT
+            m.menu_seq as menuSeq,
+            m.menu_cd as menuCd,
+            m.menu_nm as menuNm,
+            m.parent_menu_seq as parentMenuSeq,
+            m.menu_url as menuUrl,
+            m.menu_icon as menuIcon,
+            m.disp_ord as dispOrd,
+            m.disp_type as dispType,
+            m.menu_type as menuType,
+            m.sidebar_yn as sidebarYn,
+            r.can_read as canRead,
+            r.can_write as canWrite,
+            r.can_delete as canDelete,
+            r.can_excel as canExcel
+        FROM utb_role_menu_map r
+        INNER JOIN utb_menu_mst m ON r.menu_seq = m.menu_seq
+        WHERE r.role_seq = #{roleSeq}
+          AND r.can_read = 'Y'
+          AND m.del_yn = 'N'
+          AND m.use_yn = 'Y'
+        ORDER BY m.disp_ord ASC
+    </select>
+
+    <!-- SYSTEM_ADMIN (사무소 관리자)용: 슈퍼어드민 전용 메뉴 제외 -->
+    <select id="findAllMenusAsAdmin" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleMenuMapVO">
+        SELECT
+            menu_seq as menuSeq,
+            menu_cd as menuCd,
+            menu_nm as menuNm,
+            parent_menu_seq as parentMenuSeq,
+            menu_url as menuUrl,
+            menu_icon as menuIcon,
+            disp_ord as dispOrd,
+            disp_type as dispType,
+            menu_type as menuType,
+            sidebar_yn as sidebarYn,
+            'Y' as canRead,
+            'Y' as canWrite,
+            'Y' as canDelete,
+            'Y' as canExcel
+        FROM utb_menu_mst
+        WHERE del_yn = 'N' AND use_yn = 'Y'
+          AND COALESCE(super_admin_only, 'N') = 'N'
+        ORDER BY disp_ord ASC
+    </select>
+
+    <!-- SUPER_ADMIN 전용: 슈퍼어드민 전용 메뉴 포함한 전체 -->
+    <select id="findAllMenusAsSuperAdmin" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleMenuMapVO">
+        SELECT
+            menu_seq as menuSeq,
+            menu_cd as menuCd,
+            menu_nm as menuNm,
+            parent_menu_seq as parentMenuSeq,
+            menu_url as menuUrl,
+            menu_icon as menuIcon,
+            disp_ord as dispOrd,
+            disp_type as dispType,
+            menu_type as menuType,
+            sidebar_yn as sidebarYn,
+            'Y' as canRead,
+            'Y' as canWrite,
+            'Y' as canDelete,
+            'Y' as canExcel
+        FROM utb_menu_mst
+        WHERE del_yn = 'N' AND use_yn = 'Y'
+        ORDER BY disp_ord ASC
+    </select>
+
+    <!-- 사무소 관리자용: 사무소 플랜에 허용된 메뉴 + 4권한 자동 Y (super_admin_only 자동 제외) -->
+    <select id="findPlanAdminMenus" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleMenuMapVO">
+        SELECT
+            m.menu_seq         AS menuSeq,
+            m.menu_cd          AS menuCd,
+            m.menu_nm          AS menuNm,
+            m.parent_menu_seq  AS parentMenuSeq,
+            m.menu_url         AS menuUrl,
+            m.menu_icon        AS menuIcon,
+            m.disp_ord         AS dispOrd,
+            m.disp_type        AS dispType,
+            m.menu_type        AS menuType,
+            m.sidebar_yn       AS sidebarYn,
+            'Y' AS canRead, 'Y' AS canWrite, 'Y' AS canDelete, 'Y' AS canExcel
+        FROM utb_menu_mst m
+        INNER JOIN utb_office_mst o
+                ON o.office_seq = #{officeSeq} AND o.del_yn = 'N'
+        INNER JOIN utb_plan_menu_map pm
+                ON pm.plan_seq = o.plan_seq
+               AND pm.menu_seq = m.menu_seq
+               AND pm.use_yn = 'Y' AND pm.del_yn = 'N'
+        WHERE m.del_yn = 'N' AND m.use_yn = 'Y'
+          AND COALESCE(m.super_admin_only, 'N') = 'N'
+        ORDER BY m.disp_ord ASC
+    </select>
+
+    <!-- 일반 사용자용: 사무소 플랜 ∩ 역할 매핑 (canRead='Y' 필터) -->
+    <select id="findPlanRoleMenus" resultType="kr.co.mindpro.ipms.domain.system.vo.RoleMenuMapVO">
+        SELECT
+            m.menu_seq         AS menuSeq,
+            m.menu_cd          AS menuCd,
+            m.menu_nm          AS menuNm,
+            m.parent_menu_seq  AS parentMenuSeq,
+            m.menu_url         AS menuUrl,
+            m.menu_icon        AS menuIcon,
+            m.disp_ord         AS dispOrd,
+            m.disp_type        AS dispType,
+            m.menu_type        AS menuType,
+            m.sidebar_yn       AS sidebarYn,
+            rm.can_read   AS canRead,
+            rm.can_write  AS canWrite,
+            rm.can_delete AS canDelete,
+            rm.can_excel  AS canExcel
+        FROM utb_menu_mst m
+        INNER JOIN utb_office_mst o
+                ON o.office_seq = #{officeSeq} AND o.del_yn = 'N'
+        INNER JOIN utb_plan_menu_map pm
+                ON pm.plan_seq = o.plan_seq
+               AND pm.menu_seq = m.menu_seq
+               AND pm.use_yn = 'Y' AND pm.del_yn = 'N'
+        INNER JOIN utb_role_menu_map rm
+                ON rm.menu_seq = m.menu_seq
+               AND rm.role_seq = #{roleSeq}
+        WHERE m.del_yn = 'N' AND m.use_yn = 'Y'
+          AND COALESCE(m.super_admin_only, 'N') = 'N'
+          AND rm.can_read = 'Y'
+        ORDER BY m.disp_ord ASC
+    </select>
+
+    <insert id="insertRoleMenu" parameterType="kr.co.mindpro.ipms.domain.system.vo.RoleMenuMapVO">
+        <selectKey keyProperty="mapSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_role_menu_map')
+        </selectKey>
+        INSERT INTO utb_role_menu_map (map_seq, role_seq, menu_seq, can_read, can_write, can_delete, can_excel)
+        VALUES (#{mapSeq}, #{roleSeq}, #{menuSeq}, #{canRead}, #{canWrite}, #{canDelete}, #{canExcel})
+    </insert>
+
+    <delete id="deleteRoleMenus">
+        DELETE FROM utb_role_menu_map WHERE role_seq = #{roleSeq}
+    </delete>
+
+    <select id="findMaxRoleCdSeq" resultType="int">
+        SELECT COALESCE(MAX(CAST(SUBSTRING(role_cd FROM '_(\d+)$') AS INTEGER)), 0)
+        FROM utb_role_mst
+        WHERE role_cd LIKE #{prefix} || '%'
+    </select>
+
+    <!-- 역할별 사용자 목록 (per-membership: oe.role_seq 기준) -->
+    <select id="findRoleUsers" resultType="kr.co.mindpro.ipms.domain.user.vo.UserMasterVO">
+        SELECT I.user_mst_seq, I.user_name_ko, I.user_email, I.user_mobile_no,
+               E.office_employee_dept, E.office_employee_position
+        FROM utb_user_info I
+        INNER JOIN utb_office_employee E ON I.user_mst_seq = E.user_mst_seq
+        WHERE E.role_seq = #{roleSeq}
+          AND E.office_seq = #{officeSeq}
+          AND I.del_yn = 'N'
+          AND E.del_yn = 'N'
+        ORDER BY I.user_name_ko
+    </select>
+
+    <!-- 사용자에게 역할 할당 (per-membership, office 기반) -->
+    <update id="assignUserRole">
+        UPDATE utb_office_employee
+        SET    role_seq = #{roleSeq}
+        WHERE  user_mst_seq = #{userMstSeq}
+          AND  office_seq   = #{officeSeq}
+          AND  del_yn       = 'N'
+    </update>
+
+    <!-- 사용자에서 역할 해제 (per-membership) -->
+    <update id="removeUserRole">
+        UPDATE utb_office_employee
+        SET    role_seq = NULL
+        WHERE  user_mst_seq = #{userMstSeq}
+          AND  office_seq   = #{officeSeq}
+          AND  role_seq     = #{roleSeq}
+          AND  del_yn       = 'N'
+    </update>
+
+    <select id="countRoleUsers" resultType="int">
+        SELECT COUNT(*) FROM utb_office_employee
+        WHERE  role_seq   = #{roleSeq}
+          AND  office_seq = #{officeSeq}
+          AND  del_yn     = 'N'
+    </select>
+
+    <!-- 특정 (유저, 사무소) 조합의 현재 역할 조회 -->
+    <select id="findUserRoleSeq" resultType="string">
+        SELECT role_seq FROM utb_office_employee
+        WHERE  user_mst_seq = #{userMstSeq}
+          AND  office_seq   = #{officeSeq}
+          AND  del_yn       = 'N'
+        LIMIT 1
+    </select>
+
+    <select id="findDefaultRoleSeq" resultType="string">
+        SELECT role_seq FROM utb_role_mst
+        WHERE role_type = #{roleType} AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+</mapper>

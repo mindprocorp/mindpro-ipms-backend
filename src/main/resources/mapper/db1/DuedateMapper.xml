@@ -1,0 +1,627 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : InvoiceMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.duedate.repository.db1.DueDateMapper">
+    <select id="findAllByWork" resultType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateVO">
+        SELECT
+            mst.duedate_seq,
+            mst.duedate_date,
+            mst.duedate_kind_code,
+            mst.duedate_category_code,
+            mst.duedate_complete_yn,
+            mst.alarm_yn,
+            mst.alarm_complete_yn,
+            mapp.tbl_seq,
+            mapp.office_seq,
+            mapp.mapping_duedate_seq
+        FROM utb_duedate_mst mst
+                 INNER JOIN utb_duedate_mapp mapp ON mst.duedate_seq = mapp.duedate_seq
+        WHERE mapp.tbl_seq = #{tblSeq}
+          AND mapp.office_seq = #{officeSeq}
+          AND mst.del_yn = 'N'
+          AND mapp.del_yn = 'N'
+        ORDER BY mst.duedate_date ASC
+    </select>
+
+
+
+<!--    <insert id="insertDueDate" parameterType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateVO">-->
+<!--        /* 1. 기존 데이터 중 날짜가 다른 것이 있다면 'Y' 처리 */-->
+<!--        WITH updated_mst AS (-->
+<!--        UPDATE "MP_IPMS_PA".utb_duedate_mst-->
+<!--        SET del_yn = 'Y',-->
+<!--            update_user = #{createUser},-->
+<!--            update_at = CURRENT_TIMESTAMP-->
+<!--        WHERE office_seq = #{officeSeq}-->
+<!--          AND duedate_category_code = #{duedateCategoryCode}-->
+<!--          AND duedate_date IS DISTINCT FROM #{duedateDate}::timestamptz-->
+<!--            AND del_yn = 'N'-->
+<!--            AND duedate_seq IN (-->
+<!--            SELECT duedate_seq FROM "MP_IPMS_PA".utb_duedate_mapp-->
+<!--            WHERE office_seq = #{officeSeq} AND tbl_seq = #{tblSeq} AND del_yn = 'N'-->
+<!--            )-->
+<!--            RETURNING duedate_seq-->
+<!--            ),-->
+<!--            /* 2. 연결된 기존 MAPP 데이터도 함께 'Y' 처리 */-->
+<!--            updated_mapp AS (-->
+<!--        UPDATE "MP_IPMS_PA".utb_duedate_mapp-->
+<!--        SET del_yn = 'Y',-->
+<!--            update_user = #{createUser},-->
+<!--            update_at = CURRENT_TIMESTAMP-->
+<!--        WHERE office_seq = #{officeSeq}-->
+<!--          AND tbl_seq = #{tblSeq}-->
+<!--          AND del_yn = 'N'-->
+<!--          AND duedate_seq IN (SELECT duedate_seq FROM updated_mst)-->
+<!--            RETURNING 1-->
+<!--            ),-->
+<!--            /* 3. 신규 MST INSERT (변경 사항이 있거나 최초 등록일 때만) */-->
+<!--            inserted_mst AS (-->
+<!--        INSERT INTO "MP_IPMS_PA".utb_duedate_mst (-->
+<!--            office_seq, duedate_seq, duedate_date, duedate_kind_code,-->
+<!--            duedate_category_code, create_user, create_at, del_yn-->
+<!--        )-->
+<!--        SELECT-->
+<!--            #{officeSeq},-->
+<!--            fn_get_dynamic_seq('utb_duedate_mst'),-->
+<!--            #{duedateDate},-->
+<!--            #{duedateKindCode},-->
+<!--            #{duedateCategoryCode},-->
+<!--            #{createUser},-->
+<!--            CURRENT_TIMESTAMP,-->
+<!--            'N'-->
+<!--        WHERE-->
+<!--            /* 업데이트가 발생했거나(기존 날짜와 다름) */-->
+<!--            EXISTS (SELECT 1 FROM updated_mst)-->
+<!--           OR-->
+<!--            /* 동일 카테고리의 살아있는 기일이 아예 없는 경우 */-->
+<!--            NOT EXISTS (-->
+<!--            SELECT 1 FROM "MP_IPMS_PA".utb_duedate_mst t-->
+<!--            JOIN "MP_IPMS_PA".utb_duedate_mapp m ON t.duedate_seq = m.duedate_seq-->
+<!--            WHERE t.office_seq = #{officeSeq}-->
+<!--          AND m.tbl_seq = #{tblSeq}-->
+<!--          AND t.duedate_category_code = #{duedateCategoryCode}-->
+<!--          AND t.del_yn = 'N'-->
+<!--            )-->
+<!--            RETURNING duedate_seq-->
+<!--            )-->
+<!--        /* 4. 신규 MAPP INSERT */-->
+<!--        INSERT INTO "MP_IPMS_PA".utb_duedate_mapp (-->
+<!--            office_seq, mapping_duedate_seq, tbl_seq, duedate_seq,-->
+<!--            tbl_code, create_user, create_at, del_yn-->
+<!--        )-->
+<!--        SELECT-->
+<!--            #{officeSeq},-->
+<!--            fn_get_dynamic_seq('utb_duedate_mapp'),-->
+<!--            #{tblSeq},-->
+<!--            duedate_seq,-->
+<!--            COALESCE(#{tblCode}, 'UNKNOWN'),-->
+<!--            #{createUser},-->
+<!--            CURRENT_TIMESTAMP,-->
+<!--            'N'-->
+<!--        FROM inserted_mst;-->
+<!--    </insert>-->
+
+    <select id="findUpcomingDueDates" parameterType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateVO" resultType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateVO">
+        SELECT
+        mst.*,
+        mapp.tbl_seq,
+        mapp.office_seq
+        FROM "MP_IPMS_PA".utb_duedate_mst mst
+        INNER JOIN "MP_IPMS_PA".utb_duedate_mapp mapp ON mst.duedate_seq = mapp.duedate_seq
+        WHERE mapp.office_seq = #{officeSeq}
+        AND mst.del_yn = 'N'
+        AND mapp.del_yn = 'N'
+        AND (
+
+        <![CDATA[
+          mst.duedate_date >= CURRENT_TIMESTAMP
+          OR
+          (mst.duedate_date < CURRENT_TIMESTAMP AND mst.duedate_complete_yn = 'N')
+          ]]>
+        )
+        ORDER BY mst.duedate_date ASC
+    </select>
+
+    <update id="deleteMstByWork">
+        UPDATE "MP_IPMS_PA".utb_duedate_mst
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND duedate_seq IN (
+            SELECT duedate_seq
+            FROM "MP_IPMS_PA".utb_duedate_mapp
+            WHERE tbl_seq = #{tblSeq}
+              AND office_seq = #{officeSeq}
+              AND del_yn = 'N'
+        )
+    </update>
+
+    <update id="deleteMappByWork">
+        UPDATE "MP_IPMS_PA".utb_duedate_mapp
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <insert id="softDeleteAndInsertDueDate" parameterType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateVO">
+        WITH soft_delete_rows AS (
+            UPDATE "MP_IPMS_PA".utb_duedate_mst
+            SET del_yn = 'Y',
+                update_at = CURRENT_TIMESTAMP,
+                update_user = #{updateUser}
+            WHERE office_seq = #{officeSeq}
+              AND del_yn = 'N'
+              AND duedate_category_code = #{duedateCategoryCode}
+              AND duedate_seq IN (SELECT duedate_seq
+                                 FROM "MP_IPMS_PA".utb_duedate_mapp
+                                 WHERE tbl_seq = #{tblSeq}
+                                   AND office_seq = #{officeSeq}
+                                   AND del_yn = 'N')
+            RETURNING duedate_seq
+        )
+            INSERT INTO "MP_IPMS_PA".utb_duedate_mst (
+                duedate_seq,
+                duedate_order,
+                office_seq,
+                duedate_date,
+                duedate_kind_code,
+                duedate_category_code,
+                create_user,
+                del_yn,
+                create_at
+            )
+            SELECT
+                duedate_seq,
+                nextval('utb_duedate_mst_order_seq'),
+                #{officeSeq},
+                #{duedateDate},
+                #{duedateKindCode},
+                #{duedateCategoryCode},
+                #{createUser},
+                'N',
+                CURRENT_TIMESTAMP
+            FROM soft_delete_rows;
+    </insert>
+
+    <select id="getDuedateSeqByWork">
+        SELECT duedate_seq
+        FROM "MP_IPMS_PA".utb_duedate_mapp
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+
+    <update id="updateDueDateDate" parameterType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateVO">
+        UPDATE "MP_IPMS_PA".utb_duedate_mst
+        SET
+            duedate_date = #{duedateDate},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE duedate_seq = #{duedateSeq}
+          AND del_yn = 'N'
+    </update>
+
+
+
+    <select id="findDueDateList" resultType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateManageVO">
+        /* [A] 소스 데이터 구성: 가장 먼저 마감일 종류(dueTypeCode)와 날짜로 필터링 (성능 최적화) */
+        WITH source_data AS (
+        SELECT
+        mst.duedate_seq,
+        mst.office_seq,
+        mst.duedate_date,
+        mst.duedate_category_code,
+        mst.duedate_complete_yn
+        FROM "MP_IPMS_PA".utb_duedate_mst mst
+        WHERE mst.office_seq = #{request.officeSeq}
+        AND mst.del_yn = 'N'
+
+        /* 1. 날짜 필터링 */
+        <if test="request.dateFilters != null">
+            <foreach collection="request.dateFilters" item="f">
+                <if test='f.dateCode == "deadline"'>
+                    AND mst.duedate_date BETWEEN TO_DATE(#{f.startDate}, 'YYYYMMDD') AND TO_DATE(#{f.endDate}, 'YYYYMMDD')
+                </if>
+            </foreach>
+        </if>
+
+        /* 2. [핵심 최적화] 마감종류(dueTypeCode)를 조인 전에 미리 IN 절로 필터링 */
+        <if test="request.searchCondition != null">
+            AND ( 1=0
+            <foreach collection="request.searchCondition" item="c">
+                <if test='c.codeName == "dueTypeCode"'>
+                    ${c.andOrNOT} mst.duedate_category_code = #{c.codeValue}
+                </if>
+            </foreach>
+            )
+        </if>
+        ),
+        /* [B] 원천 매핑: 필터링된 데이터만 가지고 업무 테이블 조인 (resolved_app_seq 확보) */
+        raw_mapped AS (
+        SELECT
+        s.*,
+        mapp.tbl_seq AS raw_tbl_seq,
+        COALESCE(
+        app_dir.app_seq, cft.app_seq, req.app_seq, ids.app_seq,
+        CASE
+        WHEN prg.tbl_code = 'APPMST' THEN prg.tbl_seq
+        WHEN (prg.tbl_code = 'CFTMST' OR prg.tbl_seq LIKE 'CFTMST%') THEN prg_cft.app_seq
+        ELSE NULL
+        END
+        ) AS resolved_app_seq,
+        cft.case_classification AS cft_route,
+        cft.case_category_code  AS cft_category
+        FROM source_data s
+        INNER JOIN "MP_IPMS_PA".utb_duedate_mapp mapp ON s.duedate_seq = mapp.duedate_seq AND s.office_seq = mapp.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_app_mst app_dir ON mapp.tbl_seq = app_dir.app_seq AND mapp.office_seq = app_dir.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_conflict_mst cft ON mapp.tbl_seq = cft.conflict_seq AND mapp.office_seq = cft.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_required_document req ON mapp.tbl_seq = req.required_doc_seq AND mapp.office_seq = req.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_app_ids ids ON mapp.tbl_seq = ids.ids_seq AND mapp.office_seq = ids.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_progress prg ON mapp.tbl_seq = prg.progress_seq AND mapp.office_seq = prg.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_conflict_mst prg_cft ON prg.tbl_seq = prg_cft.conflict_seq AND prg.office_seq = prg_cft.office_seq
+        WHERE mapp.del_yn = 'N'
+        ),
+        /* [C] 필터링 레이어: 동적 검색어(CamelCase) 대응 별칭 부여 및 마스터 정보 결합 */
+        mapped_data AS (
+        SELECT
+        r.duedate_seq AS "duedateSeq", r.office_seq AS "officeSeq", r.duedate_date AS "deadline",
+        r.duedate_category_code AS "dueTypeCode", r.raw_tbl_seq AS "tblSeq", r.resolved_app_seq,
+        r.duedate_complete_yn AS "duedateCompleteYn",
+        /* 명칭 계승 로직 */
+        COALESCE(r.cft_route, m.case_classification) AS "appRouteCode",
+        COALESCE(r.cft_category, m.app_classification) AS "caseCategoryCode",
+        COALESCE(m.asset_no, r.raw_tbl_seq) AS "ourRef",
+        COALESCE(m.app_no, '') AS "appNo",
+        m.reg_no AS "regNo",
+        m.app_name_ko AS "titleKo",
+        m.country_code AS "countryCode",
+        m.agent_ref AS "yourRef",
+        m.right_category AS "rightTypeCode",
+        m.dept_code AS "deptName",
+        pp."applicant_NM" AS "applicantNm",
+        pp."client_NM" AS "clientNm",
+        pp."inventor_NM" AS "inventorNm",
+        pp."adminMgr_NM" AS "adminMgrNm",
+        pp."attorney_NM" AS "attorneyNm",
+        pp."caseMgr_NM" AS "caseMgrNm",
+        pp."regMgr_NM" AS "regMgrNm",
+        dp."noticeDate",
+        dp."appDate",
+        dp."regDate"
+        FROM raw_mapped r
+        LEFT JOIN "MP_IPMS_PA".utb_app_mst m ON r.resolved_app_seq = m.app_seq AND r.office_seq = m.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp ON r.resolved_app_seq = pp.tbl_seq AND r.office_seq = pp.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot dp ON r.resolved_app_seq = dp.tbl_seq AND r.office_seq = dp.office_seq
+        ),
+        /* [D] 나머지 동적 필터링: dueTypeCode를 제외한 OurRef, 부서명 등 모든 조건 처리 */
+        target_ids AS (
+        SELECT * FROM mapped_data
+        WHERE 1=1
+        <if test="request.searchCondition != null and request.searchCondition.size() > 0">
+            <foreach collection="request.searchCondition" item="c">
+                <if test='c.codeName != "dueTypeCode"'>
+                    AND ("${c.codeName}" = #{c.codeValue})
+                </if>
+            </foreach>
+        </if>
+        <if test="request.textFilters != null and request.textFilters.size() > 0">
+            <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+        </if>
+        ORDER BY "deadline" ASC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+        )
+        /* [E] 최종 결과 조립: 화면 출력용 데이터 결합 */
+        SELECT
+        to_char(t."deadline", 'YYYYMMDD') AS "deadline",
+        t."dueTypeCode", "MP_IPMS_PA".fn_get_cd_nm('DUE_TYPE', t."dueTypeCode") AS "dueTypeName",
+        t."duedateSeq", t."officeSeq", t."tblSeq", t."duedateCompleteYn",
+        t."appRouteCode",
+        COALESCE("MP_IPMS_PA".fn_get_cd_nm('IP_PROC_TYPE', t."appRouteCode"), '진행사항') AS "appRouteName",
+        t."caseCategoryCode",
+        "MP_IPMS_PA".fn_get_cd_nm('NAT_IO_DIV', t."caseCategoryCode") AS "caseCategoryName",
+        app.app_seq AS "appSeq", app.app_no AS "appNo", app.asset_no AS "ourRef", app.agent_ref AS "yourRef",
+        app.app_name_ko AS "titleKo", app.app_name_en AS "titleEn", app.reg_no AS "regNo", app.retain_seq AS "applicantRefNo",
+        app.right_category AS "rightTypeCode", "MP_IPMS_PA".fn_get_cd_nm('PAT_TYPE', app.right_category) AS "rightTypeName",
+        app.country_code AS "countryCode", "MP_IPMS_PA".fn_get_ctry_nm(app.country_code, 'C', 'KO') AS "countryName", app.dept_code AS "deptName",
+        to_char(due_p."appDate", 'YYYYMMDD') AS "appDate", to_char(due_p."regDate", 'YYYYMMDD') AS "regDate",
+        COALESCE(pp_t."applicant", pp_a."applicant") AS "applicantSeq", COALESCE(pp_t."applicant_NM", pp_a."applicant_NM") AS "applicantName",
+        COALESCE(pp_t."client", pp_a."client") AS "clientSeq", COALESCE(pp_t."client_NM", pp_a."client_NM") AS "clientName",
+        COALESCE(pp_t."adminMgr", pp_a."adminMgr") AS "adminMgrSeq", COALESCE(pp_t."adminMgr_NM", pp_a."adminMgr_NM") AS "adminMgrName",
+        COALESCE(pp_t."caseMgr", pp_a."caseMgr") AS "caseMgrSeq", COALESCE(pp_t."caseMgr_NM", pp_a."caseMgr_NM") AS "caseMgrName",
+        COALESCE(pp_t."attorney", pp_a."attorney") AS "attorneySeq", COALESCE(pp_t."attorney_NM", pp_a."attorney_NM") AS "attorneyName",
+        COALESCE(pp_t."regMgr_NM", pp_a."regMgr_NM") AS "regMgrName",
+        COALESCE(pp_t."inventor_NM", pp_a."inventor_NM") AS "inventorName"
+        FROM target_ids t
+        LEFT JOIN "MP_IPMS_PA".utb_app_mst app ON t.resolved_app_seq = app.app_seq AND t."officeSeq" = app.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot due_p ON t.resolved_app_seq = due_p.tbl_seq AND t."officeSeq" = due_p.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp_t ON t."tblSeq" = pp_t.tbl_seq AND t."officeSeq" = pp_t.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp_a ON t.resolved_app_seq = pp_a.tbl_seq AND t."officeSeq" = pp_a.office_seq
+        ORDER BY t."deadline" ASC
+    </select>
+
+    <update id="updateCompleteYn">
+        UPDATE "MP_IPMS_PA".utb_duedate_mst
+        SET duedate_complete_yn = #{completeYn},
+            update_user         = #{updateUser},
+            update_at           = CURRENT_TIMESTAMP
+        WHERE duedate_seq = #{duedateSeq}
+          AND duedate_category_code = #{dueTypeCategoryCode}
+          AND del_yn = 'N'
+    </update>
+
+    <select id="findDueDateListCount" resultType="int">
+        WITH source_data AS (
+        SELECT duedate_seq, office_seq, duedate_date, duedate_category_code
+        FROM "MP_IPMS_PA".utb_duedate_mst
+        WHERE office_seq = #{request.officeSeq} AND del_yn = 'N'
+        <if test="request.dateFilters != null">
+            <foreach collection="request.dateFilters" item="f">
+                <if test='f.dateCode == "deadline"'>
+                    AND duedate_date BETWEEN TO_DATE(#{f.startDate}, 'YYYYMMDD') AND TO_DATE(#{f.endDate}, 'YYYYMMDD')
+                </if>
+            </foreach>
+        </if>
+        <if test="request.searchCondition != null">
+            AND ( 1=1
+            <foreach collection="request.searchCondition" item="c">
+                <if test='c.codeName == "dueTypeCode"'> ${c.andOrNOT} duedate_category_code = #{c.codeValue} </if>
+            </foreach>
+            )
+        </if>
+        ),
+        raw_mapped AS (
+        SELECT s.*,
+        COALESCE(app_dir.app_seq, cft.app_seq, req.app_seq, ids.app_seq,
+        CASE WHEN prg.tbl_code = 'APPMST' THEN prg.tbl_seq WHEN (prg.tbl_code = 'CFTMST' OR prg.tbl_seq LIKE 'CFTMST%') THEN prg_cft.app_seq ELSE NULL END
+        ) AS resolved_app_seq,
+        cft.case_classification AS cft_route,
+        cft.case_category_code  AS cft_category
+        FROM source_data s
+        INNER JOIN "MP_IPMS_PA".utb_duedate_mapp mapp ON s.duedate_seq = mapp.duedate_seq AND s.office_seq = mapp.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_app_mst app_dir ON mapp.tbl_seq = app_dir.app_seq AND mapp.office_seq = app_dir.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_conflict_mst cft ON mapp.tbl_seq = cft.conflict_seq AND mapp.office_seq = cft.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_required_document req ON mapp.tbl_seq = req.required_doc_seq AND mapp.office_seq = req.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_app_ids ids ON mapp.tbl_seq = ids.ids_seq AND mapp.office_seq = ids.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_progress prg ON mapp.tbl_seq = prg.progress_seq AND mapp.office_seq = prg.office_seq
+        LEFT JOIN "MP_IPMS_PA".utb_conflict_mst prg_cft ON prg.tbl_seq = prg_cft.conflict_seq AND prg.office_seq = prg_cft.office_seq
+        WHERE mapp.del_yn = 'N'
+        ),
+        mapped_data AS (
+        SELECT
+        r.duedate_date AS "deadline", r.duedate_category_code AS "dueTypeCode",
+        m.asset_no AS "ourRef", m.app_no AS "appNo",
+        m.reg_no AS "regNo", m.app_name_ko AS "titleKo",
+        m.right_category AS "rightTypeCode",
+        m.dept_code AS "deptName",
+        pp."applicant_NM" AS "applicantNm",
+        pp."client_NM" AS "clientNm",
+        pp."inventor_NM" AS "inventorNm",
+        pp."adminMgr_NM" AS "adminMgrNm",
+        pp."attorney_NM" AS "attorneyNm",
+        pp."caseMgr_NM" AS "caseMgrNm",
+        pp."regMgr_NM" AS "regMgrNm",
+        dp."noticeDate",
+        dp."appDate",
+        dp."regDate"
+        FROM raw_mapped r
+        LEFT JOIN "MP_IPMS_PA".utb_app_mst m ON r.resolved_app_seq = m.app_seq AND r.office_seq = m.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_participant_pivot pp ON r.resolved_app_seq = pp.tbl_seq AND r.office_seq = pp.office_seq
+        LEFT JOIN "MP_IPMS_PA".v_total_duedate_pivot dp ON r.resolved_app_seq = dp.tbl_seq AND r.office_seq = dp.office_seq
+        )
+        SELECT COUNT(*) FROM mapped_data
+        WHERE 1=1
+        <if test="request.searchCondition != null and request.searchCondition.size() > 0">
+            <foreach collection="request.searchCondition" item="c">
+                <if test='c.codeName != "dueTypeCode"'>
+                    AND ("${c.codeName}" = #{c.codeValue})
+                </if>
+            </foreach>
+        </if>
+    </select>
+
+
+    <delete id="deleteDueDateMappByTblSeq" parameterType="map">
+        DELETE FROM utb_duedate_mapp
+        WHERE tbl_seq   = #{tblSeq}
+          AND office_seq = #{officeSeq}
+    </delete>
+
+    <insert id="insertDueDateMapp" parameterType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateMapVO">
+
+        <selectKey keyProperty="duedateSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_duedate_mst') AS duedateSeq
+        </selectKey>
+
+        INSERT INTO utb_duedate_mapp (
+        mapping_duedate_seq,
+        tbl_seq,
+        duedate_seq,
+        office_seq,
+        del_yn,
+        create_user
+        )
+        VALUES (
+        fn_get_dynamic_seq('utb_duedate_mapp'),
+        #{tblSeq},
+        #{duedateSeq},
+        #{officeSeq},
+        #{delYn},
+        #{createUser}
+        )
+
+    </insert>
+
+
+    <insert id="insertDueDate"  parameterType="kr.co.mindpro.ipms.domain.duedate.vo.DueDateVO">
+
+        INSERT INTO utb_duedate_mst (
+            duedate_seq,
+            duedate_order,
+            office_seq,
+            duedate_date,
+            duedate_kind_code,
+            duedate_category_code,
+            create_user,
+            del_yn,
+            create_at
+        )
+        VALUES (
+                   #{duedateSeq},
+                   nextval('utb_duedate_mst_order_seq'),
+                   #{officeSeq},
+                   #{duedateDate},
+                #{duedateKindCode},
+                #{duedateCategoryCode},
+                   #{createUser},
+                  #{delYn},
+                   now()
+               )
+
+    </insert>
+
+    <select id="selectProgressHistoryList" resultType="kr.co.mindpro.ipms.domain.duedate.vo.ProgressHistoryVO">
+        SELECT * FROM (
+        SELECT
+        am.app_seq          AS "appSeq",
+        ''          AS "conflictSeq",
+        am.app_classification AS "appClassification",
+        'N'                 AS "etcYn",
+        fn_get_cd_nm('NAT_IO_DIV', am.app_classification) AS "caseCategoryName",
+        fn_get_cd_nm('TARGET_TYPE', p.target_code)        AS "progressTypeName",
+        am.right_category               AS "rightTypeCode",
+        fn_get_cd_nm('PAT_TYPE', am.right_category)       AS "rightTypeName",
+        am.asset_no         AS "ourRef",
+        to_char(due."appDate", 'YYYYMMDD') AS "appDate",
+        am.app_no           AS "appNo",
+        to_char(due."regDate", 'YYYYMMDD') AS "regDate",
+        am.reg_no           AS "regNo",
+        am.product_class    AS "productClass",
+        to_char(pdue."documentSubmitDate", 'YYYYMMDD') AS "documentSubmitDate",
+        to_char(pdue."oaDeliveryDate", 'YYYYMMDD')     AS "oaDeliveryDate",
+        to_char(pdue."receiptDate", 'YYYYMMDD')        AS "receiptDate",
+        to_char(p.create_at, 'YYYYMMDD')               AS "eventDate",
+        COALESCE(p.receipt_doc_content, fn_get_doc_nm(p.receipt_doc_seq)) AS "content",
+        pp."applicant_NM"   AS "applicantName",
+        am.app_name_ko      AS "titleKo",
+        p.create_at         AS "sortDate"
+        /* am.* 제거 (컬럼 개수 불일치 원인) */
+        FROM utb_progress p
+        INNER JOIN utb_app_mst am ON p.tbl_seq = am.app_seq AND p.office_seq = am.office_seq
+        LEFT JOIN v_total_duedate_pivot due ON am.app_seq = due.tbl_seq AND am.office_seq = due.office_seq
+        LEFT JOIN v_total_duedate_pivot pdue ON p.progress_seq = pdue.tbl_seq AND p.office_seq = pdue.office_seq
+        LEFT JOIN v_participant_pivot pp ON am.app_seq = pp.tbl_seq AND am.office_seq = pp.office_seq
+        WHERE p.office_seq = #{request.officeSeq}
+        AND p.del_yn = 'N'
+        AND p.tbl_seq LIKE 'APPMST%'
+
+        UNION ALL
+
+        SELECT
+        cm.app_seq          AS "appSeq",
+        cm.conflict_seq          AS "conflictSeq",
+        'CFT'               AS "appClassification",
+        cm.etc_yn           AS "etcYn",
+        fn_get_cd_nm('NAT_IO_DIV', am.app_classification) AS "caseCategoryName",
+        fn_get_cd_nm('TARGET_TYPE', p.target_code)        AS "progressTypeName",
+        am.right_category               AS "rightTypeCode",
+        fn_get_cd_nm('PAT_TYPE', am.right_category)       AS "rightTypeName",
+        cm.asset_no         AS "ourRef",
+        to_char(due."appDate", 'YYYYMMDD') AS "appDate",
+        am.app_no           AS "appNo",
+        to_char(due."regDate", 'YYYYMMDD') AS "regDate",
+        am.reg_no           AS "regNo",
+        am.product_class    AS "productClass",
+        to_char(pdue."documentSubmitDate", 'YYYYMMDD') AS "documentSubmitDate",
+        to_char(pdue."oaDeliveryDate", 'YYYYMMDD')     AS "oaDeliveryDate",
+        to_char(pdue."receiptDate", 'YYYYMMDD')        AS "receiptDate",
+        to_char(p.create_at, 'YYYYMMDD')               AS "eventDate",
+        COALESCE(p.receipt_doc_content, fn_get_doc_nm(p.receipt_doc_seq)) AS "content",
+        pp."applicant_NM"   AS "applicantName",
+        am.app_name_ko      AS "titleKo",
+        p.create_at         AS "sortDate"
+        /* cm.* 제거 (컬럼 개수 불일치 원인) */
+        FROM utb_progress p
+        INNER JOIN utb_conflict_mst cm ON p.tbl_seq = cm.conflict_seq AND p.office_seq = cm.office_seq
+        INNER JOIN utb_app_mst am ON cm.app_seq = am.app_seq AND cm.office_seq = am.office_seq
+        LEFT JOIN v_total_duedate_pivot due ON am.app_seq = due.tbl_seq AND am.office_seq = due.office_seq
+        LEFT JOIN v_total_duedate_pivot pdue ON p.progress_seq = pdue.tbl_seq AND p.office_seq = pdue.office_seq
+        LEFT JOIN v_participant_pivot pp ON am.app_seq = pp.tbl_seq AND am.office_seq = pp.office_seq
+        WHERE p.office_seq = #{request.officeSeq}
+        AND p.del_yn = 'N'
+        AND p.tbl_seq LIKE 'CFTMST%'
+        ) AS combined
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition"/>
+        ORDER BY "sortDate" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="selectProgressHistoryCount" resultType="int">
+        SELECT COUNT(*)
+        FROM (
+        /* CASE 1: 일반 출원(APPMST) */
+        SELECT
+        am.app_seq          AS "appSeq",
+        ''          AS "conflictSeq",
+        am.app_classification AS "appClassification", /* 필터용 */
+        'N'                 AS "etcYn",             /* 필터용 */
+        am.asset_no         AS "ourRef",
+        to_char(due."appDate", 'YYYYMMDD') AS "appDate",
+        to_char(due."regDate", 'YYYYMMDD') AS "regDate",
+        to_char(pdue."documentSubmitDate", 'YYYYMMDD') AS "documentSubmitDate",
+        to_char(pdue."oaDeliveryDate", 'YYYYMMDD')     AS "oaDeliveryDate",
+        to_char(pdue."receiptDate", 'YYYYMMDD')        AS "receiptDate",
+        to_char(p.create_at, 'YYYYMMDD')               AS "eventDate",
+        pp."applicant_NM"   AS "applicantName",
+        am.app_name_ko      AS "titleKo"
+        FROM utb_progress p
+        INNER JOIN utb_app_mst am ON p.tbl_seq = am.app_seq AND p.office_seq = am.office_seq
+        LEFT JOIN v_total_duedate_pivot due ON am.app_seq = due.tbl_seq AND am.office_seq = due.office_seq
+        LEFT JOIN v_total_duedate_pivot pdue ON p.progress_seq = pdue.tbl_seq AND p.office_seq = pdue.office_seq
+        LEFT JOIN v_participant_pivot pp ON am.app_seq = pp.tbl_seq AND am.office_seq = pp.office_seq
+        WHERE p.office_seq = #{request.officeSeq}
+        AND p.del_yn = 'N'
+        AND p.tbl_seq LIKE 'APPMST%'
+
+        UNION ALL
+
+        /* CASE 2: 이의심판(CFTMST) */
+        SELECT
+        am.app_seq          AS "appSeq",
+        cm.conflict_seq          AS "conflictSeq",
+        'CFT'               AS "appClassification", /* 심판 구분값 일치 */
+        cm.etc_yn           AS "etcYn",             /* 심판 테이블의 실제 값 */
+        cm.asset_no         AS "ourRef",
+        to_char(due."appDate", 'YYYYMMDD') AS "appDate",
+        to_char(due."regDate", 'YYYYMMDD') AS "regDate",
+        to_char(pdue."documentSubmitDate", 'YYYYMMDD') AS "documentSubmitDate",
+        to_char(pdue."oaDeliveryDate", 'YYYYMMDD')     AS "oaDeliveryDate",
+        to_char(pdue."receiptDate", 'YYYYMMDD')        AS "receiptDate",
+        to_char(p.create_at, 'YYYYMMDD')               AS "eventDate",
+        pp."applicant_NM"   AS "applicantName",
+        am.app_name_ko      AS "titleKo"
+        FROM utb_progress p
+        INNER JOIN utb_conflict_mst cm ON p.tbl_seq = cm.conflict_seq AND p.office_seq = cm.office_seq
+        INNER JOIN utb_app_mst am ON cm.app_seq = am.app_seq AND cm.office_seq = am.office_seq
+        LEFT JOIN v_total_duedate_pivot due ON am.app_seq = due.tbl_seq AND am.office_seq = due.office_seq
+        LEFT JOIN v_total_duedate_pivot pdue ON p.progress_seq = pdue.tbl_seq AND p.office_seq = pdue.office_seq
+        LEFT JOIN v_participant_pivot pp ON am.app_seq = pp.tbl_seq AND am.office_seq = pp.office_seq
+        WHERE p.office_seq = #{request.officeSeq}
+        AND p.del_yn = 'N'
+        AND p.tbl_seq LIKE 'CFTMST%'
+        ) AS "combined"
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition"/>
+    </select>
+
+
+</mapper>

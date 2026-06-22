@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.preference.repository.db1.PreferenceMapper">
+    <select id="findAllByApp" resultType="kr.co.mindpro.ipms.domain.preference.dto.response.PreferenceResponse$PreferenceDetail">
+        SELECT
+            p.app_seq,
+            p.office_seq,
+            p.preference_seq,
+            p.prior_country_code,
+            p.preference_no,
+            p.wipo_category_code,
+            /* 요구사항: 우선권 번호(preference_no)를 출원번호로 가진
+               출원건(utb_app)의 app_seq를 조회하여 매핑
+            */
+            (SELECT a.app_seq
+             FROM utb_app_mst a
+             WHERE a.app_no = p.preference_no
+               AND a.office_seq = p.office_seq
+               AND a.del_yn = 'N'
+                LIMIT 1) AS preference_search,
+
+        p.full_content_url,
+        /* 날짜 변환 함수 활용 */
+        fn_get_duedate_str(p.office_seq, p.preference_seq, 'preferenceAssertDate') AS preference_assert_date,
+        fn_get_duedate_str(p.office_seq, p.preference_seq, 'submitDeadLineDate') AS submit_dead_line_date,
+        fn_get_duedate_str(p.office_seq, p.preference_seq, 'submitClosingDate') AS submit_closing_date,
+        fn_get_duedate_str(p.office_seq, p.preference_seq, 'preferenceRegDate') AS preferenceRegDate,
+        p.note
+        FROM utb_app_preference p
+        WHERE p.app_seq = #{appSeq}
+          AND p.office_seq = #{officeSeq}
+          AND p.del_yn = 'N'
+        ORDER BY p.create_at DESC
+    </select>
+
+    <select id="findById" resultType="kr.co.mindpro.ipms.domain.preference.dto.response.PreferenceResponse$PreferenceDetail">
+        SELECT
+            app_seq,
+            office_seq,
+            preference_seq,
+            prior_country_code,
+            preference_no,
+            wipo_category_code,
+            preference_search,
+            full_content_url,
+            /* 이미 만들어두신 함수 활용 (날짜를 YYYYMMDD 문자열로 반환) */
+            fn_get_duedate_str(p.office_seq, p.preference_seq, 'preferenceAssertDate') AS preference_assert_date,
+            fn_get_duedate_str(p.office_seq, p.preference_seq, 'submitDeadLineDate') AS submit_dead_line_date,
+            fn_get_duedate_str(p.office_seq, p.preference_seq, 'submitClosingDate') AS submit_closing_date,
+            fn_get_duedate_str(p.office_seq, p.preference_seq, 'preferenceRegDate') AS preferenceRegDate,
+            note
+        FROM utb_app_preference p
+        WHERE preference_seq = #{preferenceSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+
+        ORDER BY create_at DESC
+            LIMIT 1
+    </select>
+
+    <update id="deleteByApp">
+        UPDATE utb_app_preference
+        SET del_yn = 'Y', update_at = CURRENT_TIMESTAMP, update_user = #{userId}
+        WHERE app_seq = #{appSeq} AND office_seq = #{officeSeq} AND del_yn = 'N'
+    </update>
+
+    <update id="deletePreference">
+        UPDATE utb_app_preference
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP,
+            update_user = #{userId}
+        WHERE app_seq = #{appSeq}
+          AND preference_seq = #{preferenceSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <insert id="insertPreference" parameterType="kr.co.mindpro.ipms.domain.preference.vo.PreferenceVO">
+        <selectKey resultType="string" keyProperty="preferenceSeq" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_app_preference')
+        </selectKey>
+        INSERT INTO utb_app_preference (
+        app_seq, office_seq, preference_seq,
+        prior_country_code, preference_no, wipo_category_code,
+        preference_search, full_content_url, note,
+        create_user, create_at, del_yn
+        ) VALUES (
+        #{appSeq}, #{officeSeq}, #{preferenceSeq},
+        #{priorCountryCode}, #{preferenceNo}, #{wipoCategoryCode},
+        #{preferenceSearch}, #{fullContentUrl}, #{note},
+        #{createUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+
+    <update id="updatePreference" parameterType="kr.co.mindpro.ipms.domain.preference.vo.PreferenceVO">
+        UPDATE utb_app_preference
+        SET
+            prior_country_code = #{priorCountryCode},
+            preference_no = #{preferenceNo},
+            wipo_category_code = #{wipoCategoryCode},
+            preference_search = #{preferenceSearch},
+            full_content_url = #{fullContentUrl},
+            note = #{note},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE preference_seq = #{preferenceSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 우선권 다건 논리 삭제 -->
+    <update id="softDeletePreferenceList">
+        UPDATE utb_app_preference
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP,
+            update_user = #{userId}
+        WHERE app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND preference_seq IN
+          <foreach collection="preferenceSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 우선권 단건 물리 삭제 -->
+    <delete id="hardDeletePreference">
+        DELETE FROM utb_app_preference
+        WHERE app_seq = #{appSeq}
+          AND preference_seq = #{preferenceSeq}
+          AND office_seq = #{officeSeq}
+    </delete>
+
+    <!-- 우선권 다건 물리 삭제 -->
+    <delete id="hardDeletePreferenceList">
+        DELETE FROM utb_app_preference
+        WHERE app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND preference_seq IN
+          <foreach collection="preferenceSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.requiredDoc.repository.db1.RequiredDocMapper">
+    <insert id="insertRequiredDoc" parameterType="kr.co.mindpro.ipms.domain.requiredDoc.vo.RequiredDocVO">
+        <selectKey keyProperty="requiredDocSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_required_document') AS requiredDocSeq
+        </selectKey>
+
+        INSERT INTO utb_required_document (
+            required_doc_seq
+            , office_seq
+            , app_seq
+            , required_doc_name
+            , create_user
+            , create_at
+            , del_yn
+            , note
+        ) VALUES (
+            #{requiredDocSeq}
+            , #{officeSeq}
+            , #{appSeq}
+            , #{requiredDocName}
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , 'N'
+            , #{note}
+        )
+    </insert>
+
+    <select id="getRequiredDocDetail" resultType="kr.co.mindpro.ipms.domain.requiredDoc.vo.RequiredDocVO">
+        SELECT
+            urd.required_doc_seq
+             , urd.app_seq
+             , urd.required_doc_name
+             , vtdp."submitDeadline"
+             , vtdp."signReqDate"
+             , vtdp."receiptDate"
+             , vtdp."sendDate"
+             , vtdp."submitDate"
+        FROM utb_required_document urd
+        LEFT JOIN v_total_duedate_pivot vtdp ON urd.required_doc_seq = vtdp.tbl_seq
+        WHERE urd.office_seq = #{officeSeq}
+          AND urd.app_seq = #{appSeq}
+          AND urd.required_doc_seq = #{requiredDocSeq}
+          AND urd.del_yn = 'N'
+    </select>
+
+    <select id="getRequiredDocListByAppSeq">
+        SELECT
+            urd.required_doc_seq
+             , urd.required_doc_name
+             , vtdp."submitDeadline"
+             , vtdp."signReqDate"
+             , vtdp."receiptDate"
+             , vtdp."sendDate"
+             , vtdp."submitDate"
+        FROM utb_required_document urd
+        LEFT JOIN v_total_duedate_pivot vtdp ON urd.required_doc_seq = vtdp.tbl_seq
+        WHERE urd.office_seq = #{officeSeq}
+          AND urd.app_seq = #{appSeq}
+          AND urd.del_yn = 'N'
+        ORDER BY urd.create_at ASC
+    </select>
+
+    <select id="getRequiredDocListCnt" resultType="int">
+        SELECT COUNT(*)
+        FROM utb_required_document
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="getDuplicateRequiredDoc" parameterType="kr.co.mindpro.ipms.domain.requiredDoc.vo.RequiredDocVO" resultType="int">
+        SELECT COUNT(*)
+        FROM utb_required_document
+        WHERE office_seq = #{officeSeq}
+        AND app_seq = #{appSeq}
+        AND required_doc_seq = #{requiredDocSeq}
+    </select>
+
+    <update id="updateRequiredDoc" parameterType="kr.co.mindpro.ipms.domain.requiredDoc.vo.RequiredDocVO">
+        UPDATE utb_required_document
+        SET
+            required_doc_name = #{requiredDocName}
+            , update_user = #{updateUser}
+            , update_at = CURRENT_TIMESTAMP
+            , note = #{note}
+        WHERE required_doc_seq = #{requiredDocSeq}
+          AND office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+    </update>
+
+    <delete id="softDeleteRequiredDoc">
+        UPDATE utb_required_document
+        SET del_yn = 'Y'
+          , update_user = #{userSeq}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE required_doc_seq = #{requiredDocSeq}
+          AND office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND del_yn = 'N'
+    </delete>
+
+    <!-- 구비서류 다건 논리 삭제 -->
+    <update id="softDeleteRequiredDocList">
+        UPDATE utb_required_document
+        SET del_yn = 'Y'
+          , update_user = #{userSeq}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND required_doc_seq IN
+          <foreach collection="requiredDocSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 구비서류 단건 물리 삭제 -->
+    <delete id="hardDeleteRequiredDoc">
+        DELETE FROM utb_required_document
+        WHERE required_doc_seq = #{requiredDocSeq}
+          AND office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+    </delete>
+
+    <!-- 구비서류 다건 물리 삭제 -->
+    <delete id="hardDeleteRequiredDocList">
+        DELETE FROM utb_required_document
+        WHERE app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND required_doc_seq IN
+          <foreach collection="requiredDocSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+    </delete>
+</mapper>

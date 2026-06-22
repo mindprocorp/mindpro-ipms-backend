@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : InvoiceMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.bizinfo.repository.db1.BizInfoMapper">
+
+
+    <select id="findAllByOffice" resultType="kr.co.mindpro.ipms.domain.bizinfo.vo.BizInfoVO">
+        SELECT biz_info_seq
+             , office_seq
+             , corp_code, ceo_name
+             , biz_reg_file
+             , biz_reg_no
+             ,biz_workplace_no
+             , biz_corp_name
+             , biz_addr
+             , biz_addr_detail
+             , biz_fax_no
+             , biz_tel_no
+             , biz_post_no
+             , biz_type
+             , biz_kind
+             , reg_discount_code
+             , year_discount_code
+             , discount_closing_date as discount_closing_date,
+            create_user
+             , create_at
+             , del_yn
+             , note
+        FROM utb_biz_info
+        WHERE office_seq = #{officeSeq}
+          AND del_yn = 'N'
+        ORDER BY create_at DESC
+            LIMIT #{pageSize} OFFSET #{offSet}
+    </select>
+
+    <select id="findById" resultType="kr.co.mindpro.ipms.domain.bizinfo.vo.BizInfoVO">
+        SELECT biz_info_seq
+               , office_seq
+               , corp_code
+             , ceo_name
+               , biz_reg_no
+               , biz_corp_name
+               , biz_addr
+               , biz_addr_detail
+             , biz_fax_no
+             , biz_tel_no
+             , biz_post_no
+             , biz_type
+             , biz_kind
+             , reg_discount_code
+             , year_discount_code
+             , TO_CHAR(discount_closing_date, 'YYYYMMDD') as discount_closing_date
+             , reduction_reason
+             , TO_CHAR(reduction_issue_date, 'YYYYMMDD') as reduction_issue_date,
+               create_user
+             , create_at
+             , del_yn
+             , note
+        FROM utb_biz_info
+        WHERE biz_info_seq = #{bizInfoSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <update id="deleteBizInfo">
+        UPDATE utb_biz_info
+        SET del_yn = 'Y',
+            update_user = #{userId},
+            update_at = CURRENT_TIMESTAMP
+        WHERE biz_info_seq = #{bizInfoSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <insert id="insertBizInfo" parameterType="kr.co.mindpro.ipms.domain.bizinfo.vo.BizInfoVO">
+        <selectKey keyProperty="bizInfoSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_biz_info')
+        </selectKey>
+
+        INSERT INTO utb_biz_info (
+            biz_info_seq,
+            office_seq,
+            corp_code,
+            ceo_name,
+            biz_reg_no,
+            biz_workplace_no,
+            biz_corp_name,
+            biz_addr,
+            biz_addr_detail,
+            biz_fax_no,
+            biz_tel_no,
+            biz_post_no,
+            biz_type,
+            biz_kind,
+            reg_discount_code,
+            year_discount_code,
+            discount_closing_date,
+            reduction_reason,
+            reduction_issue_date,
+
+            biz_contact_name,
+            biz_dept_name,
+            biz_email,
+            create_user, create_at, del_yn, note
+        ) VALUES (
+        #{bizInfoSeq}
+            , #{officeSeq}
+            , #{corpCode}
+            , #{ceoName}
+            , #{bizRegNo}
+            , #{bizWorkplaceNo}
+            , #{bizCorpName}
+            , #{bizAddr}
+            , #{bizAddrDetail}
+            , #{bizFaxNo}
+            , #{bizTelNo}
+            , #{bizPostNo}
+            , #{bizType}
+            , #{bizKind}
+            , #{regDiscountCode}
+            , #{yearDiscountCode}
+            , NULLIF(#{discountClosingDate}, '')::timestamptz
+            , #{reductionReason}
+            , NULLIF(#{reductionIssueDate}, '')::timestamptz
+            , #{bizContactName}
+            , #{bizDeptName}
+            , #{bizEmail}
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , 'N'
+            , #{note}
+                 )
+    </insert>
+
+    <update id="updateBizInfo" parameterType="kr.co.mindpro.ipms.domain.bizinfo.vo.BizInfoVO">
+        UPDATE utb_biz_info
+        SET corp_code = #{corpCode},
+            ceo_name = #{ceoName},
+            biz_reg_no = #{bizRegNo},
+            biz_workplace_no = #{bizWorkplaceNo},
+            biz_corp_name = #{bizCorpName},
+            biz_addr = #{bizAddr},
+            biz_addr_detail = #{bizAddrDetail},
+            biz_fax_no = #{bizFaxNo},
+            biz_tel_no = #{bizTelNo},
+            biz_post_no = #{bizPostNo},
+            biz_type = #{bizType},
+            biz_kind = #{bizKind},
+            reg_discount_code = #{regDiscountCode},
+            year_discount_code = #{yearDiscountCode},
+            discount_closing_date = NULLIF(#{discountClosingDate}, '')::timestamptz,
+            reduction_reason = #{reductionReason},
+            reduction_issue_date = NULLIF(#{reductionIssueDate}, '')::timestamptz,
+            biz_contact_name = #{bizContactName},
+            biz_dept_name = #{bizDeptName},
+            biz_email = #{bizEmail},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP,
+            note = #{note}
+        WHERE biz_info_seq = #{bizInfoSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+</mapper>

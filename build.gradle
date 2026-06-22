@@ -1,0 +1,147 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.4.0'
+	id 'io.spring.dependency-management' version '1.1.6'
+    id 'war'
+}
+
+group = 'com.mindpro.ipms'
+version = '0.0.1-SNAPSHOT'
+description = 'ipms-mindapi project for Spring Boot'
+apply plugin:'war'
+bootWar.enabled = false
+war.enabled = true
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+    // 전역 로깅 시스템을 Logback에서 Log4j2로 전환하기 위해 기본 로깅 제외
+    all {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
+}
+
+repositories {
+	mavenCentral()
+	maven { url 'https://repo.spring.io/milestone' }
+	maven { url 'https://repo.spring.io/release' }
+}
+
+ext {
+    // 2025년 최신 안정 버전 기준
+    set('bootVer', "3.4.0") 
+    set('jacksonVer', "2.18.2")
+    set('jjwtVer', "0.12.6")
+    //spring AI
+    set('springAiVersion',"1.0.0-M6")
+}
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
+}
+dependencies {
+
+    /* Spring Boot Starters */
+    implementation "org.springframework.boot:spring-boot-starter:${bootVer}"
+    implementation "org.springframework.boot:spring-boot-starter-web:${bootVer}"
+    implementation "org.springframework.boot:spring-boot-starter-security:${bootVer}"
+    implementation "org.springframework.boot:spring-boot-starter-validation:${bootVer}"
+    implementation "org.springframework.boot:spring-boot-starter-mail:${bootVer}"
+
+    /* Logging - Log4j2 */
+    implementation "org.springframework.boot:spring-boot-starter-log4j2:${bootVer}"
+    implementation 'com.lmax:disruptor:3.4.4' // 비동기 로깅 성능 향상을 위한 필수 라이브러리    
+    
+    /* JWT - JJWT 0.12.6 */
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVer}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVer}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVer}"
+    
+	/* Swagger/OpenAPI 3 - Springdoc */
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.0'
+    
+    // AWS S3 SDK v2
+    implementation 'software.amazon.awssdk:s3:2.20.0'
+    
+    /* Database & MyBatis */
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4'
+    runtimeOnly 'org.postgresql:postgresql'
+    implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'    
+    
+    /* Jackson & XML Serialization */
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVer}"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVer}"
+    implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.2'
+
+    /* AOP */
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    
+    /* Lombok & Config */
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor "org.springframework.boot:spring-boot-configuration-processor:${bootVer}"
+
+//    /*Spring Ai*/
+//    // https://mvnrepository.com/artifact/org.springframework.ai/spring-ai-openai-spring-boot-starter
+//    implementation group: 'org.springframework.ai', name: 'spring-ai-openai-spring-boot-starter'
+//    implementation 'org.springframework.ai:spring-ai-core'
+//    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
+//
+//	implementation 'io.hypersistence:hypersistence-tsid:2.1.1'
+//    // PostgreSQL Vector Store 지원
+//    implementation 'org.springframework.ai:spring-ai-pgvector-store-spring-boot-starter'
+//    implementation 'org.springframework.ai:spring-ai-pgvector-store' // 직접 명시 추가
+//
+//    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
+    /* Spring AI - 1.0.0-M6 전용 설정 */
+    // OpenAI 스타터 (OpenAiApi 클래스 등을 포함)
+    /* Spring AI - 1.0.0-M6 안정화 버전 */
+// 1. OpenAI 관련 (Gemini 호환용)
+    implementation "org.springframework.ai:spring-ai-openai-spring-boot-starter"
+    implementation "org.springframework.ai:spring-ai-core"
+
+// 2. Vector Store 관련 (Postgres)
+// 핵심: 스타터와 라이브러리를 둘 다 포함하고, pgvector 원본 라이브러리를 추가합니다.
+    implementation "org.springframework.ai:spring-ai-pgvector-store-spring-boot-starter"
+    implementation "org.springframework.ai:spring-ai-pgvector-store"
+    implementation 'com.pgvector:pgvector:0.1.6' // 핵심 브릿지 라이브러리
+
+// 3. Tika (파일 분석용)
+    implementation "org.springframework.ai:spring-ai-tika-document-reader"
+
+// 4. TSID (기존 유지)
+    implementation 'io.hypersistence:hypersistence-tsid:2.1.1'
+    /* Cache - Caffeine */
+    implementation 'org.springframework.boot:spring-boot-starter-cache' // 스프링 캐시 기본 스타터
+    implementation 'com.github.ben-manes.caffeine:caffeine'           // 실제 카페인 엔진
+    implementation "org.springframework.ai:spring-ai-mcp-client-spring-boot-starter"
+
+	/* Test Scope */
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-parameters'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+bootWar{
+    archiveFileName='ROOT.war'
+}
+war{
+    archiveFileName='ROOT.war'
+}

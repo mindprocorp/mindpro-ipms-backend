@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    @author : seokho
+    @fileName : IdsMapper.xml
+    @since  : 2026. 3. 12.
+-->
+
+<mapper namespace="kr.co.mindpro.ipms.domain.ids.repository.db1.IdsMapper">
+    <insert id="insertIds" parameterType="kr.co.mindpro.ipms.domain.ids.vo.IdsVO">
+        <selectKey resultType="kr.co.mindpro.ipms.domain.ids.vo.IdsVO" keyProperty="idsSeq" order="BEFORE">
+            SELECT
+            fn_get_dynamic_seq('utb_app_ids') AS idsSeq
+        </selectKey>
+
+        INSERT INTO utb_app_ids (
+            office_seq
+            , app_seq
+            , ids_seq
+            , occur_country_code
+            , occur_no
+            , family_no_en
+            , is_ids_submitted
+            , create_user
+            , create_at
+            , del_yn
+            , note
+        ) VALUES (
+              #{officeSeq}
+            , #{appSeq}
+            , #{idsSeq}
+            , #{occurCountryCode}
+            , #{occurNo}
+            , #{familyNoEn}
+            , #{isIdsSubmitted}
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , 'N'
+            , #{note}
+        )
+    </insert>
+
+    <select id="getIdsDetail" resultType="kr.co.mindpro.ipms.domain.ids.vo.IdsVO">
+        SELECT
+            mst.app_seq
+             , mst.ids_seq
+             , mst.occur_country_code
+             , fn_get_ctry_nm(mst.occur_country_code, 'C', 'KO') as occur_country_name
+             , mst.occur_no
+             , mst.family_no_en
+             , mst.is_ids_submitted
+             , mst.create_user
+             , mst.create_at
+             , mst.update_user
+             , mst.update_at
+             , mst.del_yn
+             , mst.note
+             , vtdp."occurDate"
+             , vtdp."idsPubDate"
+             , vtdp."idsReceiptDate"
+             , vtdp."idsSendDate"
+             , vtdp."idsDeadline"
+             , vtdp."idsSubmitDate"
+             , vpp."idsSubmitMng"
+             , vpp."idsSubmitMng_NM"
+        FROM utb_app_ids mst
+                 LEFT JOIN v_total_duedate_pivot vtdp ON mst.ids_seq = vtdp.tbl_seq
+                 LEFT JOIN v_participant_pivot vpp ON mst.ids_seq = vpp.tbl_seq
+        WHERE mst.office_seq = #{officeSeq}
+          AND mst.app_seq = #{appSeq}
+          AND mst.ids_seq = #{idsSeq}
+          AND mst.del_yn = 'N'
+    </select>
+
+
+    <select id="getIdsList" resultType="kr.co.mindpro.ipms.domain.ids.vo.IdsVO">
+        SELECT
+            mst.app_seq
+             , mst.ids_seq
+             , mst.occur_country_code
+             , fn_get_ctry_nm(mst.occur_country_code, 'C', 'KO') as occur_country_name
+             , mst.occur_no
+             , mst.family_no_en
+             , mst.is_ids_submitted
+             , mst.create_user
+             , mst.create_at
+             , mst.update_user
+             , mst.update_at
+             , mst.del_yn
+             , mst.note
+             , vtdp."occurDate"
+             , vtdp."idsPubDate"
+             , vtdp."idsReceiptDate"
+             , vtdp."idsSendDate"
+             , vtdp."idsDeadline"
+             , vtdp."idsSubmitDate"
+             , vpp."idsSubmitMng"
+             , vpp."idsSubmitMng_NM"
+        FROM utb_app_ids mst
+                 LEFT JOIN v_total_duedate_pivot vtdp ON mst.ids_seq = vtdp.tbl_seq
+                 LEFT JOIN v_participant_pivot vpp ON mst.ids_seq = vpp.tbl_seq
+        WHERE mst.office_seq = #{officeSeq}
+          AND mst.app_seq = #{appSeq}
+          AND mst.del_yn = 'N'
+        ORDER BY mst.create_at ASC
+    </select>
+
+    <select id="getDuplicateIdsSeqCnt">
+        SELECT
+            COUNT(*)
+        FROM utb_app_ids mst
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND ids_seq = #{idsSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <update id="updateIds">
+        UPDATE utb_app_ids
+           SET occur_country_code = #{occurCountryCode}
+             , occur_no = #{occurNo}
+             , family_no_en = #{familyNoEn}
+             , is_ids_submitted = #{isIdsSubmitted}
+             , update_user = #{updateUser}
+             , update_at = CURRENT_TIMESTAMP
+             , note = #{note}
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND ids_seq = #{idsSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <delete id="softDeleteByIdsSeq">
+        UPDATE utb_app_ids
+            SET del_yn = 'Y'
+               , update_user = #{userSeq}
+               , update_at = CURRENT_TIMESTAMP
+            WHERE office_seq = #{officeSeq}
+              AND app_seq = #{appSeq}
+              AND ids_seq = #{idsSeq}
+              AND del_yn = 'N'
+    </delete>
+
+    <delete id="softDeleteByIdsSeqList">
+        UPDATE utb_app_ids
+        SET del_yn = 'Y'
+          , update_user = #{userSeq}
+          , update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND ids_seq IN
+          <foreach collection="idsSeqList" item="idsSeq" open="(" separator="," close=")" >
+              #{idsSeq}
+          </foreach>
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="hardDeleteByIdsSeq">
+        DELETE FROM utb_app_ids
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND ids_seq = #{idsSeq}
+    </delete>
+
+    <delete id="hardDeleteByIdsSeqList">
+        DELETE FROM utb_app_ids
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND ids_seq IN
+        <foreach collection="idsSeqList" item="idsSeq" open="(" separator="," close=")" >
+            #{idsSeq}
+        </foreach>
+    </delete>
+</mapper>

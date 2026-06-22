@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.memo.repository.db1.MemoMapper">
+
+    <resultMap id="MemoDetailMap" type="kr.co.mindpro.ipms.domain.memo.dto.response.MemoResponse$MemoDetail">
+        <constructor>
+            <arg column="tblSeq"        name="tblSeq"        javaType="String" />
+            <arg column="memoSeq"       name="memoSeq"       javaType="String" />
+            <arg column="mustReadYn"    name="mustReadYn"    javaType="String" />
+            <arg column="memoTitle"     name="memoTitle"     javaType="String" />
+            <arg column="memoUserName"  name="memoUserName"  javaType="String" />
+            <arg column="memoRegDate"   name="memoRegDate"   javaType="String" />
+            <arg column="customerName"  name="customerName"  javaType="String" />
+            <arg column="note"          name="note"          javaType="String" />
+        </constructor>
+    </resultMap>
+
+    <select id="findAllByWork" resultMap="MemoDetailMap">
+        SELECT
+            mapp.tbl_seq        AS "tblSeq",
+            mst.memo_seq        AS "memoSeq",
+            mst.must_read_yn    AS "mustReadYn",
+            mst.memo_title      AS "memoTitle",
+            u.user_name_ko      AS "memoUserName",  mst.memo_reg_date   AS "memoRegDate",
+            mst.customer_name   AS "customerName",
+            mst.note            AS "note"
+        FROM "MP_IPMS_PA".utb_memo mst
+                 INNER JOIN "MP_IPMS_PA".utb_memo_mapp mapp ON mst.memo_seq = mapp.memo_seq
+                 LEFT JOIN "MP_IPMS_PA".utb_user_info u ON mst.create_user = u.user_info_seq
+        WHERE mapp.tbl_seq = #{tblSeq}
+          AND mapp.office_seq = #{officeSeq}
+          AND mst.del_yn = 'N'
+          AND mapp.del_yn = 'N'
+        ORDER BY mst.create_at DESC
+
+    </select>
+
+    <select id="findById" resultMap="MemoDetailMap">
+        SELECT
+            mapp.tbl_seq        AS "tblSeq",
+            mst.memo_seq        AS "memoSeq",
+            mst.must_read_yn    AS "mustReadYn",
+            mst.memo_title      AS "memoTitle",
+            u.user_name_ko      AS "memoUserName",
+            mst.memo_reg_date   AS "memoRegDate",
+            mst.customer_name   AS "customerName",
+            mst.note            AS "note"
+        FROM "MP_IPMS_PA".utb_memo mst
+                 INNER JOIN "MP_IPMS_PA".utb_memo_mapp mapp ON mst.memo_seq = mapp.memo_seq
+                 LEFT JOIN "MP_IPMS_PA".utb_user_info u ON mst.create_user = u.user_info_seq
+        WHERE mapp.memo_seq = #{memoSeq}
+          AND mapp.office_seq = #{officeSeq}
+          AND mst.del_yn = 'N'
+            LIMIT 1
+    </select>
+
+    <insert id="insertMemo" parameterType="kr.co.mindpro.ipms.domain.memo.vo.MemoVO">
+        <selectKey resultType="string" keyProperty="memoSeq" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_memo') AS memoSeq
+        </selectKey>
+
+        /* 1. 메모 본체 저장 (오타 수정: memo_rag_date -> memo_reg_date) */
+        INSERT INTO "MP_IPMS_PA".utb_memo (
+        memo_seq, must_read_yn, memo_title, customer_name,
+        memo_reg_date, note, create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+        #{memoSeq}, COALESCE(#{mustReadYn}, 'N'), #{memoTitle}, #{customerName},
+        #{memoRegDate}, #{note}, #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        );
+
+        /* 2. 매핑 테이블 저장 */
+        INSERT INTO "MP_IPMS_PA".utb_memo_mapp (
+        memo_mapp_seq, office_seq, tbl_seq, memo_seq, tbl_code,
+        create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+        fn_get_dynamic_seq('utb_memo_mapp'),
+        #{officeSeq}, #{tblSeq}, #{memoSeq}, #{tblCode},
+        #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        );
+    </insert>
+
+    <select id="getDuplicateMemo" resultType="int">
+        SELECT
+            COUNT(1)
+        FROM utb_memo um
+        INNER JOIN utb_memo_mapp umm ON um.memo_seq = umm.memo_seq
+        WHERE umm.office_seq = #{officeSeq}
+          AND umm.tbl_seq = #{tblSeq}
+          AND um.memo_seq = #{memoSeq}
+          AND um.del_yn = 'N'
+          AND umm.del_yn = 'N'
+    </select>
+
+    <update id="updateMemo">
+        UPDATE "MP_IPMS_PA".utb_memo
+        SET must_read_yn = #{mustReadYn},
+            memo_title = #{memoTitle},
+            customer_name = #{customerName},
+            memo_reg_date = #{memoRegDate},
+            note = #{note},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE memo_seq = #{memoSeq}
+    </update>
+
+    <!-- 메모 단건 논리 삭제: Mst -->
+    <update id="softDeleteMstByWork">
+        UPDATE utb_memo
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE memo_seq = #{memoSeq}
+          AND memo_seq IN (
+              SELECT memo_seq FROM utb_memo_mapp
+              WHERE tbl_seq = #{tblSeq}
+                AND office_seq = #{officeSeq}
+                AND del_yn = 'N'
+          )
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 메모 단건 논리 삭제: Mapp -->
+    <update id="softDeleteMappByWork">
+        UPDATE utb_memo_mapp
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND memo_seq = #{memoSeq}
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 메모 다건 논리 삭제: Mst -->
+    <update id="softDeleteMstByWorkList">
+        UPDATE utb_memo
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE memo_seq IN
+          <foreach collection="memoSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+          AND memo_seq IN (
+              SELECT memo_seq FROM utb_memo_mapp
+              WHERE tbl_seq = #{tblSeq}
+                AND office_seq = #{officeSeq}
+                AND del_yn = 'N'
+          )
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 메모 다건 논리 삭제: Mapp -->
+    <update id="softDeleteMappByWorkList">
+        UPDATE utb_memo_mapp
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND memo_seq IN
+          <foreach collection="memoSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+          AND del_yn = 'N'
+    </update>
+
+    <!-- 메모 단건 물리 삭제: Mst -->
+    <delete id="hardDeleteMstByWork">
+        DELETE FROM utb_memo
+        WHERE memo_seq = #{memoSeq}
+          AND memo_seq IN (
+              SELECT memo_seq FROM utb_memo_mapp
+              WHERE tbl_seq = #{tblSeq}
+                AND office_seq = #{officeSeq}
+          )
+    </delete>
+
+    <!-- 메모 단건 물리 삭제: Mapp -->
+    <delete id="hardDeleteMappByWork">
+        DELETE FROM utb_memo_mapp
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND memo_seq = #{memoSeq}
+    </delete>
+
+    <!-- 메모 다건 물리 삭제: Mst -->
+    <delete id="hardDeleteMstByWorkList">
+        DELETE FROM utb_memo
+        WHERE memo_seq IN
+          <foreach collection="memoSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+          AND memo_seq IN (
+              SELECT memo_seq FROM utb_memo_mapp
+              WHERE tbl_seq = #{tblSeq}
+                AND office_seq = #{officeSeq}
+          )
+    </delete>
+
+    <!-- 메모 다건 물리 삭제: Mapp -->
+    <delete id="hardDeleteMappByWorkList">
+        DELETE FROM utb_memo_mapp
+        WHERE tbl_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND memo_seq IN
+          <foreach collection="memoSeqList" item="seq" open="(" separator="," close=")">
+              #{seq}
+          </foreach>
+    </delete>
+
+</mapper>

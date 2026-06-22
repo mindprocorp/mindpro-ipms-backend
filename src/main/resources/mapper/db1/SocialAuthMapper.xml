@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.auth.repository.db1.SocialAuthMapper">
+
+    <select id="findMappByProviderAndId" resultType="kr.co.mindpro.ipms.domain.auth.vo.SocialAuthMappVO">
+        SELECT auth_seq, auth_approach, user_mst_seq,
+               create_user, create_at, update_user, update_at, del_yn, note
+        FROM utb_user_social_mapp
+        WHERE auth_approach = #{authApproach}
+          AND auth_seq = #{authSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <insert id="insertSocialAuth" parameterType="kr.co.mindpro.ipms.domain.auth.vo.SocialAuthVO">
+        INSERT INTO utb_user_social (
+            auth_seq, auth_approach, auth_token,
+            provider_email, provider_name,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{authSeq}, #{authApproach}, #{authToken},
+            #{providerEmail}, #{providerName},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <insert id="insertSocialAuthMapp" parameterType="kr.co.mindpro.ipms.domain.auth.vo.SocialAuthMappVO">
+        INSERT INTO utb_user_social_mapp (
+            auth_seq, auth_approach, user_mst_seq,
+            create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+            #{authSeq}, #{authApproach}, #{userMstSeq},
+            #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <update id="updateSocialAuthToken">
+        UPDATE utb_user_social
+        SET auth_token = #{authToken},
+            update_at = CURRENT_TIMESTAMP
+        WHERE auth_approach = #{authApproach}
+          AND auth_seq = #{authSeq}
+    </update>
+
+</mapper>

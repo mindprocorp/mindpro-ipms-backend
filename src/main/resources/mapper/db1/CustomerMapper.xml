@@ -1,0 +1,615 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    @author	 : intst
+    @fileName : InvoiceMapper.xml
+    @since	 : 2026. 1. 7.
+-->
+<mapper namespace="kr.co.mindpro.ipms.domain.customer.repository.db1.CustomerMapper">
+    <insert id="insertCustomer" parameterType="kr.co.mindpro.ipms.domain.customer.vo.CustomerVO">
+        <selectKey keyProperty="customerSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_customer')
+        </selectKey>
+
+        INSERT INTO utb_customer (
+        customer_seq, office_seq, biz_info_seq,
+        client_category_code, applicant_category_code, corp_category_code, attorney_category_code,
+        client_name_ko, client_name_en, client_name_ch, client_name_jp,
+        company_name, dept_name, customer_position,
+        app_zip_code, app_address, app_tel, app_fax,
+        contact_zip_code, contact_address, contact_person, contact_tel, contact_fax,
+        etc_zip_code, etc_address, etc_tel, etc_fax,
+        oversea_zip_code, oversea_address, oversea_tel, oversea_fax,
+        country_code, resident_reg_no, corp_reg_no, kipo_client_no,
+        manager_name, general_mandate_no, mobile, homepage, email,
+        registration_date, case_classification, create_user, create_at, del_yn, note
+        ) VALUES (
+        #{customerSeq}, #{officeSeq}, #{bizInfoSeq},
+        #{clientCategoryCode}, #{applicantCategoryCode}, #{corpCategoryCode}, #{attorneyCategoryCode},
+        #{clientNameKo}, #{clientNameEn}, #{clientNameCh}, #{clientNameJp},
+        #{companyName}, #{deptName}, #{customerPosition},
+        #{appZipCode}, #{appAddress}, #{appTel}, #{appFax},
+        #{contactZipCode}, #{contactAddress}, #{contactPerson}, #{contactTel}, #{contactFax},
+        #{etcZipCode}, #{etcAddress}, #{etcTel}, #{etcFax},
+        #{overseaZipCode}, #{overseaAddress}, #{overseaTel}, #{overseaFax},
+        #{countryCode}, #{residentRegNo}, #{corpRegNo}, #{kipoClientNo},
+        #{managerName}, #{generalMandateNo}, #{mobile}, #{homepage}, #{email},
+        NULLIF(#{registrationDate}, '')::timestamptz, '90', #{createUser}, CURRENT_TIMESTAMP, 'N', #{note}
+        )
+    </insert>
+
+    <delete id="deleteCustomer" parameterType="string">
+        DELETE FROM utb_customer
+        WHERE customer_seq = #{customerSeq}
+    </delete>
+
+
+    <select id="selectCustomerList" resultType="kr.co.mindpro.ipms.domain.customer.vo.CustomerVO">
+        SELECT * FROM (
+            SELECT
+            /* utb_customer: 기본 및 분류 코드 */
+            c.customer_seq              AS "customerSeq",
+            c.office_seq                AS "officeSeq",
+            c.biz_info_seq              AS "bizInfoSeq",
+            c.client_category_code      AS "clientCategoryCode",
+            c.client_category_code      AS "clientDiv",
+            c.applicant_category_code   AS "applicantCategoryCode",
+            c.applicant_category_code   AS "appManDiv",
+            c.corp_category_code        AS "corpCategoryCode",
+            c.corp_category_code        AS "corpDiv",
+            c.attorney_category_code    AS "attorneyCategoryCode",
+            c.attorney_category_code    AS "attorneyDiv",
+
+            /* utb_customer: 명칭 및 상세 */
+            c.client_name_ko            AS "clientNameKo",
+            c.client_name_en            AS "clientNameEn",
+            c.client_name_ch            AS "clientNameCh",
+            c.client_name_jp            AS "clientNameJp",
+            c.company_name              AS "companyName",
+            c.dept_name                 AS "deptName",
+            c.customer_position         AS "customerPosition", /* VO 필드명 유지 */
+            c.client_name_ko            AS "customerName", /* 검색용 */
+
+            /* utb_customer: [출원인] 주소 및 연락처 */
+            c.app_zip_code              AS "appZipCode",
+            c.app_address               AS "appAddress",
+            c.app_tel                   AS "appTel",
+            c.app_fax                   AS "appFax",
+
+            /* utb_customer: [담당자] 주소 및 연락처 (기존 누락분 추가) */
+            c.contact_zip_code          AS "contactZipCode",
+            c.contact_address           AS "contactAddress",
+            c.contact_person            AS "contactPerson",
+            c.contact_tel               AS "contactTel",
+            c.contact_fax               AS "contactFax",
+
+            /* utb_customer: [기타] 주소 및 연락처 (기존 누락분 추가) */
+            c.etc_zip_code              AS "etcZipCode",
+            c.etc_address               AS "etcAddress",
+            c.etc_tel                   AS "etcTel",
+            c.etc_fax                   AS "etcFax",
+
+            /* utb_customer: [해외] 주소 및 연락처 (기존 누락분 추가) */
+            c.oversea_zip_code          AS "overseaZipCode",
+            c.oversea_address           AS "overseaAddress",
+            c.oversea_tel               AS "overseaTel",
+            c.oversea_fax               AS "overseaFax",
+
+            /* utb_customer: 기타 등록 및 관리 정보 */
+            c.country_code              AS "countryCode",
+            c.resident_reg_no           AS "residentRegNo",
+            c.corp_reg_no               AS "corpRegNo",
+            c.kipo_client_no            AS "kipoClientNo",
+            c.kipo_client_no            AS "patentCustNo1",
+            c.kipo_client_no            AS "patentCustNo2", /* 검색용 */
+            c.manager_name              AS "managerName",
+            c.manager_name              AS "bizContactName",
+            c.manager_name              AS "adminMgrNm", /* 검색용 */
+            c.general_mandate_no        AS "generalMandateNo",
+            c.email                     AS "email",
+            c.email                     AS "bizEmail",
+            c.note                      AS "note",
+            c.note                      AS "memo",
+            c.app_tel                   AS "telNo",
+            b.ceo_name                  AS "bizCeo",
+            c.mobile                    AS "mobile",
+            c.homepage                  AS "homepage",
+            c.registration_date         AS "registrationDate",
+            c.create_at                 AS "createAt", /* 검색용 */
+
+            /* utb_biz_info: 사업자 정보 조인 */
+            b.biz_reg_no                AS "bizRegNo",
+            b.biz_workplace_no          AS "bizWorkplaceNo",
+            b.biz_corp_name             AS "bizCorpName",
+            b.biz_corp_name             AS "bizName", /* 검색용 */
+            b.ceo_name                  AS "ceoName",
+            b.biz_addr                  AS "bizAddr",
+            b.biz_type                  AS "bizType",
+            b.biz_kind                  AS "bizKind",
+            b.reg_discount_code         AS "regDiscountCode",
+            b.reduction_reason          AS "reductionReason",
+            TO_CHAR(b.reduction_issue_date, 'YYYYMMDD') AS "docIssueDate",
+            TO_CHAR(b.discount_closing_date, 'YYYYMMDD') AS "exemptionPeriod"
+            FROM utb_customer c
+            LEFT JOIN utb_biz_info b ON c.biz_info_seq = b.biz_info_seq
+            WHERE c.office_seq = #{request.officeSeq}  AND c.del_yn = 'N'
+        ) Z
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+
+        ORDER BY Z."createAt" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <!-- [신규] 고객 마스터 자유 검색 — 출원 PK 무관, utb_customer 풀에서 CLIENT_DIV 카테고리별 LIKE.
+         CLIENT_DIV 매핑: 10=의뢰인 / 20=발명자 / 30+40+60=출원인 / 50=해외대리인.
+         (등록관리자는 본 SQL 사용 안 함 — 조직도 직원 검색으로 처리) -->
+    <select id="searchCustomerMaster" resultType="kr.co.mindpro.ipms.domain.customer.vo.CustomerVO">
+        SELECT
+            customer_seq            AS "customerSeq",
+            client_name_ko          AS "clientNameKo",
+            client_name_en          AS "clientNameEn",
+            company_name            AS "companyName",
+            country_code            AS "countryCode",
+            kipo_client_no          AS "kipoClientNo",
+            client_category_code    AS "clientCategoryCode"
+        FROM utb_customer
+        WHERE office_seq = #{officeSeq}
+          AND del_yn = 'N'
+          <choose>
+            <when test="categoryCode == 'client'">       AND client_category_code = '10' </when>
+            <when test="categoryCode == 'inventor'">     AND client_category_code = '20' </when>
+            <when test="categoryCode == 'applicant'">    AND client_category_code IN ('30', '40', '60') </when>
+            <when test="categoryCode == 'foreignAgent'"> AND client_category_code = '50' </when>
+          </choose>
+          <if test="keyword != null and keyword != ''">
+            AND (
+                  client_name_ko LIKE '%' || #{keyword} || '%'
+               OR client_name_en LIKE '%' || #{keyword} || '%'
+               OR company_name   LIKE '%' || #{keyword} || '%'
+            )
+          </if>
+        ORDER BY client_name_ko ASC
+        LIMIT COALESCE(#{pageSize}, 50) OFFSET COALESCE(#{offSet}, 0)
+    </select>
+
+    <select id="selectCustomerListByWork" resultType="kr.co.mindpro.ipms.domain.customer.vo.CustomerVO">
+        SELECT
+            a.customer_seq              AS "customerSeq"
+            , a.client_name_ko            AS "clientNameKo"
+            , a.client_name_en            AS "clientNameEn"
+            , a.company_name              AS "companyName"
+            , a.country_code              AS "countryCode"
+            , a.kipo_client_no            AS "kipoClientNo"
+
+            , b.biz_reg_no                AS "bizRegNo"
+            , c.order_no
+        FROM utb_customer a
+        LEFT JOIN utb_biz_info b ON a.biz_info_seq = b.biz_info_seq
+        LEFT JOIN utb_customer_mapp c ON a.customer_seq = c.customer_seq
+        WHERE a.office_seq = #{req.officeSeq}
+          AND c.tbl_seq = #{req.tblSeq}
+          AND c.customer_category_code = #{customerCategoryCode}
+          AND a.del_yn = 'N'
+        ORDER BY a.create_at DESC
+    </select>
+
+    <select id="selectCounterPartyListByTblSeq" resultType="kr.co.mindpro.ipms.common.dto.response.CommonRecordResponse$CounterPartyInfo">
+        <!-- a.customer_seq 는 두 도메인 ID 가 들어올 수 있음:
+             - 의뢰인/출원인/발명자/해외대리인 → utb_customer.customer_seq (CUSTMR...)
+             - 등록관리자(regMgr) → utb_user_info.user_info_seq (USERIF...) (직원 도메인)
+             둘 다 LEFT JOIN 후 COALESCE 로 이름 매칭. -->
+        SELECT
+            a.customer_seq                                     AS counter_party_seq,
+            COALESCE(b.client_name_ko, u.user_name_ko)         AS counter_party_name,
+            a.note                                             AS counter_party_note,
+            a.order_no                                         AS counter_party_order_no
+        FROM utb_customer_mapp a
+        LEFT JOIN utb_customer  b ON a.customer_seq = b.customer_seq  AND b.del_yn = 'N'
+        LEFT JOIN utb_user_info u ON a.customer_seq = u.user_info_seq AND u.del_yn = 'N'
+        WHERE a.office_seq = #{officeSeq}
+          AND a.tbl_seq = #{tblSeq}
+          AND a.customer_category_code = #{customerCategoryCode}
+          AND a.del_yn = 'N'
+        ORDER BY a.order_no DESC
+    </select>
+
+
+    <select id="selectCustomerDetail" resultType="kr.co.mindpro.ipms.domain.customer.vo.CustomerVO">
+        SELECT
+            c.*,
+            b.biz_reg_no            AS "bizRegNo",
+            b.biz_workplace_no      AS "bizWorkplaceNo",
+            b.biz_corp_name         AS "bizCorpName",
+            b.ceo_name              AS "ceoName",
+            b.biz_addr              AS "bizAddr",
+            b.biz_type              AS "bizType",
+            b.biz_kind              AS "bizKind",
+            b.reg_discount_code     AS "regDiscountCode",
+            b.reduction_reason      AS "reductionReason",
+            TO_CHAR(b.reduction_issue_date, 'YYYYMMDD')  AS "reductionIssueDate",
+            TO_CHAR(b.discount_closing_date, 'YYYYMMDD') AS "discountClosingDate"
+        FROM utb_customer c
+                 LEFT JOIN utb_biz_info b ON c.biz_info_seq = b.biz_info_seq
+        WHERE c.customer_seq = #{customerSeq}
+          AND c.office_seq = #{officeSeq}
+          AND c.del_yn = 'N'
+    </select>
+
+
+    <!--위임-->
+
+
+
+    <select id="findMandateListByCustomer" resultType="kr.co.mindpro.ipms.domain.customer.vo.WrapperMandateVO">
+        SELECT *
+        FROM utb_wrappermandate
+        WHERE customer_seq = #{tblSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+        ORDER BY sort_order ASC, mandate_date DESC
+            LIMIT #{pageSize} OFFSET #{offSet}
+    </select>
+
+    <select id="findMandateDetail" resultType="kr.co.mindpro.ipms.domain.customer.vo.WrapperMandateVO">
+        SELECT *
+        FROM utb_wrappermandate
+        WHERE wrappermandate_seq = #{wrappermandateSeq}
+          AND office_seq = #{officeSeq}
+    </select>
+
+    <insert id="insertMandate" parameterType="kr.co.mindpro.ipms.domain.customer.vo.WrapperMandateVO">
+        <selectKey keyProperty="wrappermandateSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_wrappermandate')
+        </selectKey>
+
+        INSERT INTO utb_wrappermandate (
+        wrappermandate_seq, customer_seq, office_seq,
+        attorney_name, designated_attorney, agent_no,
+        mandate_date, mandate_wrapper_no, patent_customer_no,
+        mandate_range, sort_order, note,
+        create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+        #{wrappermandateSeq}, #{customerSeq}, #{officeSeq},
+        #{attorneyName}, #{designatedAttorney}, #{agentNo},
+        #{mandateDate}, #{mandateWrapperNo}, #{patentCustomerNo},
+        #{mandateRange}, #{sortOrder}, #{note},
+        #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <update id="updateMandate" parameterType="kr.co.mindpro.ipms.domain.customer.vo.WrapperMandateVO">
+        UPDATE utb_wrappermandate
+        SET attorney_name = #{attorneyName},
+            designated_attorney = #{designatedAttorney},
+            agent_no = #{agentNo},
+            mandate_date = #{mandateDate},
+            mandate_wrapper_no = #{mandateWrapperNo},
+            patent_customer_no = #{patentCustomerNo},
+            mandate_range = #{mandateRange},
+            sort_order = #{sortOrder},
+            note = #{note},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE wrappermandate_seq = #{wrappermandateSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+
+
+
+    <!--담당자 -->
+
+
+
+
+    <resultMap id="CustomerManagerResponseMap" type="kr.co.mindpro.ipms.domain.customer.dto.response.ManagerResponse$CustomerManagerResponse">
+        <constructor>
+            <arg column="tbl_seq" javaType="String"/>
+            <arg column="office_seq" javaType="String"/>
+            <arg column="participant_code" javaType="String"/>
+            <arg column="participant_seq" javaType="String"/>
+            <arg column="user_info_seq" javaType="String"/>
+            <arg column="user_name_ko" javaType="String"/>
+            <arg column="user_mobile_no" javaType="String"/>
+            <arg column="dept_name" javaType="String"/>
+            <arg column="user_tel_no" javaType="String"/>
+            <arg column="user_position" javaType="String"/>
+            <arg column="user_fax_no" javaType="String"/>
+            <arg column="user_email" javaType="String"/>
+            <arg column="user_post_no" javaType="String"/>
+            <arg column="user_addr" javaType="String"/>
+            <arg column="user_addr_detail" javaType="String"/>
+            <arg column="note" javaType="String"/>
+            <arg column="etax_yn" javaType="String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="selectCustomerManagerList" resultMap="CustomerManagerResponseMap">
+        SELECT * FROM (
+            SELECT DISTINCT ON (u.user_info_seq,p.office_seq )
+            p.tbl_seq AS "tbl_seq",
+            p.office_seq AS "office_seq",
+            p.participant_code AS "participant_code",
+            p.participant_seq AS "participant_seq",
+            u.user_info_seq AS "user_info_seq",
+            u.user_name_ko AS "user_name_ko",
+            u.user_name_ko AS "customerName", /* 검색용 */
+            u.user_mobile_no AS "user_mobile_no",
+            u.dept_name AS "dept_name",
+            u.user_tel_no AS "user_tel_no",
+            u.user_position AS "user_position",
+            u.user_fax_no AS "user_fax_no",
+            u.user_email AS "user_email",
+            u.user_email AS "email", /* 검색용 */
+            u.user_post_no AS "user_post_no",
+            u.user_addr AS "user_addr",
+            u.user_addr_detail AS "user_addr_detail",
+            p.note AS "note",
+            u.etax_yn AS "etax_yn",
+            p.create_at AS "createAt" /* 검색 정렬용 */
+            FROM utb_participant p
+            INNER JOIN utb_user_info u ON p.user_info_seq = u.user_info_seq
+            WHERE 1=1
+
+            /* tblSeq가 파라미터로 넘어온 경우에만 조건 추가 */
+            <if test="request.tblSeq != null and request.tblSeq != ''">
+                AND p.tbl_seq = #{request.tblSeq}
+            </if>
+            <if test="participantCode != null and participantCode != ''">
+                AND p.participant_code = #{participantCode}
+            </if>
+            AND p.office_seq = #{request.officeSeq}
+            AND p.del_yn = 'N'
+            AND u.del_yn = 'N'
+            ORDER BY u.user_info_seq, p.office_seq, p.create_at DESC
+        ) Z
+        WHERE 1=1
+        <include refid="kr.co.mindpro.ipms.SearchWhereSqlMapper.searchCondition" />
+
+        ORDER BY Z."createAt" DESC
+        LIMIT #{request.pageSize} OFFSET #{request.offSet}
+    </select>
+
+    <select id="selectCustomerManagerDetail" resultMap="CustomerManagerResponseMap">
+        SELECT
+            p.tbl_seq,             p.office_seq,
+            p.participant_code,
+            p.participant_seq,
+            u.user_info_seq,
+            u.user_name_ko,
+            u.user_mobile_no,
+            u.dept_name,
+            u.user_tel_no,
+            u.user_position,
+            u.user_fax_no,
+            u.user_email,
+            u.user_post_no,
+            u.user_addr,
+            u.user_addr_detail,
+            p.note,
+            u.etax_yn
+        FROM utb_participant p
+                 INNER JOIN utb_user_info u ON p.user_info_seq = u.user_info_seq
+        WHERE p.participant_seq = #{participantSeq}
+          AND p.office_seq = #{officeSeq}
+          AND p.del_yn = 'N'
+    </select>
+
+
+
+    <!--관련고객사 -->
+
+
+
+
+    <resultMap id="CustomerMappDetailMap" type="kr.co.mindpro.ipms.domain.customer.dto.response.CustomerResponse$CustomerMappDetail">
+        <constructor>
+            <arg column="customer_mapp_seq" javaType="String"/>
+            <arg column="customer_seq" javaType="String"/>
+            <arg column="tbl_seq" javaType="String"/>
+            <arg column="related_customer_name" javaType="String"/>
+            <arg column="client_name_en" javaType="String"/>
+            <arg column="app_address" javaType="String"/>
+            <arg column="contact_address" javaType="String"/>
+            <arg column="kipo_client_no" javaType="String"/>
+            <arg column="relation_code" javaType="String"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insertCustomerMapp" parameterType="kr.co.mindpro.ipms.domain.customer.vo.CustomerMappVO">
+        <selectKey keyProperty="customerMappSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_customer_mapp')
+        </selectKey>
+
+        INSERT INTO utb_customer_mapp (
+        customer_mapp_seq, customer_seq, tbl_seq,
+        relation_code, note, customer_category_code, order_no, office_seq,
+        create_user, create_at, update_user, update_at, del_yn
+        ) VALUES (
+        #{customerMappSeq}, #{customerSeq}, #{tblSeq},
+        #{relationCode}, #{note}, #{customerCategoryCode}, #{orderNo}, #{officeSeq},
+        #{createUser}, CURRENT_TIMESTAMP, #{updateUser}, CURRENT_TIMESTAMP, 'N'
+        )
+    </insert>
+
+    <select id="selectCustomerMappDetail" resultMap="CustomerMappDetailMap">
+        SELECT
+            m.customer_mapp_seq,
+            m.tbl_seq,
+            m.customer_seq,
+            COALESCE(c.client_name_ko, '') AS related_customer_name,
+            COALESCE(c.client_name_en, '') AS client_name_en,
+            COALESCE(c.app_address, '')    AS app_address,
+            COALESCE(c.contact_address, '') AS contact_address,
+            COALESCE(c.kipo_client_no, '')  AS kipo_client_no,
+            m.relation_code
+        FROM utb_customer_mapp m
+                 LEFT JOIN utb_customer c ON m.tbl_seq = c.customer_seq
+        WHERE m.customer_mapp_seq = #{customerMappSeq}
+          AND m.office_seq = #{officeSeq}
+          AND m.del_yn = 'N'
+    </select>
+
+    <select id="selectCustomerMappList" resultMap="CustomerMappDetailMap">
+        SELECT
+            m.customer_mapp_seq,
+            m.tbl_seq,
+            m.customer_seq,
+            COALESCE(c.client_name_ko, '') AS related_customer_name,
+            COALESCE(c.client_name_en, '') AS client_name_en,
+            COALESCE(c.app_address, '')    AS app_address,
+            COALESCE(c.contact_address, '') AS contact_address,
+            COALESCE(c.kipo_client_no, '')  AS kipo_client_no,
+            m.relation_code
+        FROM utb_customer_mapp m
+                 LEFT JOIN utb_customer c ON m.customer_seq = c.customer_seq
+        WHERE m.tbl_seq = #{req.tblSeq}
+          AND m.office_seq = #{req.officeSeq}
+          <if test="customerCategoryCode == null">
+            AND m.customer_category_code IS NULL
+          </if>
+          <if test="customerCategoryCode != null">
+            AND m.customer_category_code = #{customerCategoryCode}
+          </if>
+          AND m.del_yn = 'N'
+        ORDER BY m.create_at DESC
+            LIMIT #{req.pageSize} OFFSET #{req.offSet}
+
+    </select>
+
+
+    <select id="checkDuplicateSeq" resultType="int">
+        SELECT
+            count(*)
+        FROM utb_customer_mapp
+        WHERE customer_mapp_seq = #{tblSeq}
+          AND customer_category_code = #{customerCategoryCode}
+          AND del_yn = 'N'
+    </select>
+
+    <update id="softDeleteCustomerMapp">
+        UPDATE utb_customer_mapp
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP,
+            update_user = #{updateUser}
+        WHERE office_seq = #{officeSeq}
+          AND tbl_seq = #{tblSeq}
+        <if test="customerCategoryCode == null">
+            AND customer_category_code is null
+        </if>
+        <if test="customerCategoryCode != null">
+            AND customer_category_code = #{customerCategoryCode}
+         </if>
+          AND del_yn = 'N'
+    </update>
+
+    <update id="updateCustomer" parameterType="kr.co.mindpro.ipms.domain.customer.vo.CustomerVO">
+        UPDATE utb_customer
+        SET office_seq = #{officeSeq},
+            biz_info_seq = #{bizInfoSeq},
+            client_category_code = #{clientCategoryCode},
+            applicant_category_code = #{applicantCategoryCode},
+            corp_category_code = #{corpCategoryCode},
+            attorney_category_code = #{attorneyCategoryCode},
+            client_name_ko = #{clientNameKo},
+            client_name_en = #{clientNameEn},
+            client_name_ch = #{clientNameCh},
+            client_name_jp = #{clientNameJp},
+            company_name = #{companyName},
+            dept_name = #{deptName},
+            customer_position = #{customerPosition},
+            app_zip_code = #{appZipCode},
+            app_address = #{appAddress},
+            app_tel = #{appTel},
+            app_fax = #{appFax},
+            contact_zip_code = #{contactZipCode},
+            contact_address = #{contactAddress},
+            contact_person = #{contactPerson},
+            contact_tel = #{contactTel},
+            contact_fax = #{contactFax},
+            etc_zip_code = #{etcZipCode},
+            etc_address = #{etcAddress},
+            etc_tel = #{etcTel},
+            etc_fax = #{etcFax},
+            oversea_zip_code = #{overseaZipCode},
+            oversea_address = #{overseaAddress},
+            oversea_tel = #{overseaTel},
+            oversea_fax = #{overseaFax},
+            country_code = #{countryCode},
+            resident_reg_no = #{residentRegNo},
+            corp_reg_no = #{corpRegNo},
+            kipo_client_no = #{kipoClientNo},
+            manager_name = #{managerName},
+            general_mandate_no = #{generalMandateNo},
+            mobile = #{mobile},
+            homepage = #{homepage},
+            email = #{email},
+            registration_date = NULLIF(#{registrationDate}, '')::timestamptz,
+            note = #{note},
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE customer_seq = #{customerSeq}
+          AND office_seq = #{officeSeq}
+    </update>
+
+    <update id="updateCustomerDelYn">
+        UPDATE utb_customer
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP,
+            update_user = #{userId}
+        WHERE office_seq = #{officeSeq}
+          AND customer_seq IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="updateMandateDelYn">
+        UPDATE utb_wrappermandate
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP,
+            update_user = #{userId}
+        WHERE office_seq = #{officeSeq}
+          AND wrappermandate_seq IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="updateCustomerManagerDelYn">
+        UPDATE utb_participant
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP,
+            update_user = #{userId}
+        WHERE office_seq = #{officeSeq}
+          AND participant_seq IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="updateCustomerMappDelYn">
+        UPDATE utb_customer_mapp
+        SET del_yn = 'Y',
+            update_at = CURRENT_TIMESTAMP,
+            update_user = #{userId}
+        WHERE office_seq = #{officeSeq}
+          AND customer_mapp_seq IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="softDeleteCustomerFileByFileSeq" parameterType="map">
+        UPDATE utb_file_mapp
+        SET del_yn = 'Y',
+            update_user = #{updateUser},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND file_seq = #{fileSeq}
+          AND del_yn = 'N'
+    </update>
+
+</mapper>

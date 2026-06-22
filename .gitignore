@@ -3,10 +3,15 @@
 
 # Log file
 *.log
+vector_store.json
 
 # BlueJ files
 *.ctxt
-
+build/
+.idea/
+.gradle/
+gradle/
+logs/
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 

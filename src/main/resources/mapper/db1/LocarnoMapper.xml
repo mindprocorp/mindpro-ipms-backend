@@ -1,0 +1,227 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.mindpro.ipms.domain.locarno.repository.db1.LocarnoMapper">
+
+    <!--  로카르노 단일 저장  -->
+    <insert id="insertLocarno" parameterType="kr.co.mindpro.ipms.domain.locarno.vo.AppLocarnoVO">
+        <selectKey keyProperty="locarnoSeq" resultType="string" order="BEFORE">
+            SELECT fn_get_dynamic_seq('utb_app_locarno')
+        </selectKey>
+
+        INSERT INTO utb_app_locarno (
+            office_seq
+            , app_seq
+            , locarno_seq
+            , class_no
+            , sub_class_no
+            , goods_seq
+            , locarno_group_id
+            , locarno_name_ko
+            , locarno_name_en
+            , goods_count
+            , create_user
+            , create_at
+            , del_yn
+        ) VALUES (
+            #{officeSeq}
+            , #{appSeq}
+            , #{locarnoSeq}
+            , #{classNo}
+            , #{subClassNo}
+            , #{goodsSeq}
+            , #{locarnoGroupId}
+            , #{locarnoNameKo}
+            , #{locarnoNameEn}
+            , #{goodsCount}
+            , #{createUser}
+            , CURRENT_TIMESTAMP
+            , #{delYn}
+        )
+
+    </insert>
+
+    <!-- 로카르노 목록 조회 -->
+    <select id="selectLocarnoList" resultType="kr.co.mindpro.ipms.domain.locarno.vo.LocarnoVO">
+        SELECT
+              class_no
+            , locarno_version
+            , category_gb
+            , class_nm_ko
+            , class_nm_en
+            , class_desc_ko
+            , class_desc_en
+            , del_yn
+            , create_user
+            , create_at
+            , update_user
+            , update_at
+        FROM utb_locarno_mst
+        WHERE 1=1
+          AND del_yn = 'N'
+          
+        <!-- locarnoVersion이 null이거나 빈 문자열이 아닐 때만 조건 추가 -->
+        <if test="locarnoVersion != null and locarnoVersion != ''">
+          AND locarno_version = #{locarnoVersion}
+        </if>
+                  
+    		ORDER BY class_no ASC, locarno_version DESC
+    </select>
+    
+    <!-- [추가] 로카르노 소분류 목록 조회 -->
+    <select id="selectLocarnoSubclassList" resultType="kr.co.mindpro.ipms.domain.locarno.vo.LocarnoVO">
+        SELECT
+              class_no
+            , subclass_no
+            , locarno_version
+            , subclass_nm_ko
+            , subclass_nm_en
+            , del_yn
+            , create_user
+            , create_at
+            , update_user
+            , update_at
+         FROM utb_locarno_subclass_mst
+        WHERE 1=1
+          AND del_yn = 'N'
+          AND class_no = #{classNo}
+          
+        <if test="locarnoVersion != null and locarnoVersion != ''">
+          AND locarno_version = #{locarnoVersion}
+        </if>
+                  
+        ORDER BY subclass_no ASC, locarno_version DESC
+    </select>    
+    
+	<!-- 물품류 및 소분류별 물품 목록 조회 -->
+	<select id="selectLocarnoGoodsList" resultType="kr.co.mindpro.ipms.domain.locarno.vo.LocarnoVO">
+	    SELECT
+	          G.goods_seq
+	        , G.class_no
+	        , G.subclass_no
+	        , G.locarno_version
+	        , G.goods_no
+	        , G.goods_nm_ko
+	        , G.goods_nm_en
+	        /* 필요 시 마스터 명칭 조인 필드 추가 */
+	        , S.subclass_nm_ko
+	        , G.del_yn
+	        , G.create_user	AS createUser
+	        , G.create_at	AS createAt	        
+	     FROM utb_locarno_goods_mst G
+	     LEFT JOIN utb_locarno_subclass_mst S
+	       ON G.class_no = S.class_no 
+	      AND G.subclass_no = S.subclass_no
+	      AND G.locarno_version = S.locarno_version
+	    WHERE G.del_yn = 'N'
+	      AND G.class_no = #{classNo}
+	      AND G.subclass_no = #{subclassNo}
+	    <if test="locarnoVersion != null and locarnoVersion != ''">
+	      AND G.locarno_version = #{locarnoVersion}
+	    </if>
+	    ORDER BY G.goods_no ASC, G.goods_seq DESC
+	</select>
+
+    <select id="getLocarnoList" resultType="kr.co.mindpro.ipms.domain.locarno.vo.AppLocarnoVO">
+        SELECT
+            A.app_seq
+             , A.class_no
+             , A.sub_class_no
+             , A.locarno_group_id
+             , CASE
+                    WHEN LENGTH(A.full_ko) > 500 THEN LEFT(A.full_ko, 500) || '...'
+                    ELSE A.full_ko
+                END AS goods_summary_ko
+             , CASE
+                    WHEN LENGTH(A.full_en) > 500 THEN LEFT(A.full_en, 500) || '...'
+                    ELSE A.full_en
+                END AS goods_summary_en
+             , A.goods_count
+        FROM (
+            SELECT
+                app_seq
+                , class_no
+                , sub_class_no
+                , locarno_group_id
+                , STRING_AGG(locarno_name_ko, ',' ORDER BY trim(locarno_name_ko) collate "C") AS full_ko
+                , STRING_AGG(locarno_name_en, ',' ORDER BY trim(locarno_name_en) collate "C") AS full_en
+                , MAX(goods_count) AS goods_count
+                , MIN(create_at)   AS create_at
+            FROM utb_app_locarno
+            WHERE office_seq = #{officeSeq}
+              AND app_seq    = #{appSeq}
+              AND del_yn     = 'N'
+            GROUP BY locarno_group_id, app_seq, office_seq, class_no, sub_class_no
+        ) A
+        ORDER BY A.create_at ASC
+    </select>
+
+    <!-- 로카르노 그룹 내 개별 항목 조회 (수정 모드 초기 데이터용) -->
+    <select id="selectLocarnoByGroup" resultType="kr.co.mindpro.ipms.domain.locarno.vo.AppLocarnoVO">
+        SELECT
+            class_no
+            , sub_class_no
+            , goods_seq
+            , locarno_group_id
+            , locarno_name_ko
+            , locarno_name_en
+            , goods_count
+        FROM utb_app_locarno
+        WHERE office_seq = #{officeSeq}
+          AND app_seq    = #{appSeq}
+          AND locarno_group_id = #{locarnoGroupId}
+          AND del_yn = 'N'
+        ORDER BY locarno_name_ko ASC
+    </select>
+
+    <select id="getDuplicateLocarnoCnt" resultType="int">
+        SELECT
+            COUNT(*)
+        FROM utb_app_locarno
+        WHERE locarno_group_id = #{locarnoGroupId}
+          AND app_seq = #{appSeq}
+          AND office_seq = #{officeSeq}
+          AND del_yn = 'N'
+    </select>
+
+    <delete id="softDeleteLocarnoGroup">
+        UPDATE utb_app_locarno
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND locarno_group_id = #{locarnoGroupId}
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="softDeleteLocarnoGroupByList">
+        UPDATE utb_app_locarno
+        SET del_yn = 'Y',
+            update_user = #{userSeq},
+            update_at = CURRENT_TIMESTAMP
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND locarno_group_id IN
+        <foreach collection="locarnoGroupIdList" item="locarnoGroupId" open="(" separator="," close=")">
+            #{locarnoGroupId}
+        </foreach>
+          AND del_yn = 'N'
+    </delete>
+
+    <delete id="hardDeleteLocarnoGroup">
+        DELETE FROM utb_app_locarno
+        WHERE office_seq = #{officeSeq}
+          AND app_seq = #{appSeq}
+          AND locarno_group_id = #{locarnoGroupId}
+    </delete>
+
+    <delete id="hardDeleteLocarnoGroupByList">
+        DELETE FROM utb_app_locarno
+        WHERE office_seq = #{officeSeq}
+        AND app_seq = #{appSeq}
+        AND locarno_group_id IN
+        <foreach collection="locarnoGroupIdList" item="locarnoGroupId" open="(" separator="," close=")">
+            #{locarnoGroupId}
+        </foreach>
+    </delete>
+</mapper>
