@@ -16,14 +16,9 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
-import org.springframework.retry.policy.SimpleRetryPolicy;
-import org.springframework.retry.support.RetryTemplate;
-import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
-import java.util.HashMap;
-import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -32,7 +27,6 @@ import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
-
 
 import java.util.List;
 import kr.co.mindpro.ipms.domain.ai.util.AiPromptManager;
@@ -235,43 +229,7 @@ public class ModelServiceImpl implements ModelService {
                         .model(config.getAiModelNm())
                         .temperature(temperature)
                         .build())
-                .retryTemplate(buildAiRetryTemplate())
                 .build();
-    }
-
-    /**
-     * 503/429/네트워크 타임아웃 등 일시적 장애에 대해 지수 백오프 재시도.
-     * - 최대 4회 (초기 1회 + 재시도 3회)
-     * - 백오프: 1s → 2s → 4s (multiplier 2.0, max 10s)
-     * - 4xx (잘못된 요청) 은 재시도하지 않고 즉시 예외 전파
-     */
-    private RetryTemplate buildAiRetryTemplate() {
-        Map<Class<? extends Throwable>, Boolean> retryableExceptions = new HashMap<>();
-        retryableExceptions.put(HttpServerErrorException.class, true);              // 5xx
-        retryableExceptions.put(HttpClientErrorException.TooManyRequests.class, true); // 429
-        retryableExceptions.put(ResourceAccessException.class, true);               // 타임아웃/네트워크
-        // HttpClientErrorException (4xx) 은 retryable=false (등록 안 함)
-
-        SimpleRetryPolicy policy = new SimpleRetryPolicy(4, retryableExceptions, true);
-
-        ExponentialBackOffPolicy backOff = new ExponentialBackOffPolicy();
-        backOff.setInitialInterval(1000L);
-        backOff.setMultiplier(2.0);
-        backOff.setMaxInterval(10_000L);
-
-        RetryTemplate template = new RetryTemplate();
-        template.setRetryPolicy(policy);
-        template.setBackOffPolicy(backOff);
-        template.registerListener(new org.springframework.retry.RetryListener() {
-            @Override
-            public <T, E extends Throwable> void onError(
-                    org.springframework.retry.RetryContext context,
-                    org.springframework.retry.RetryCallback<T, E> callback,
-                    Throwable throwable) {
-                log.warn("AI 호출 재시도 [{}회차]: {}", context.getRetryCount(), throwable.getMessage());
-            }
-        });
-        return template;
     }
 
     /**

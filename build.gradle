@@ -44,6 +44,7 @@ ext {
 }
 dependencyManagement {
     imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${bootVer}"
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
     }
 }
@@ -82,16 +83,16 @@ dependencies {
     implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.2'
 
     /* AOP */
-    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-aop:3.4.0'
     
     /* Lombok & Config */
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
     annotationProcessor "org.springframework.boot:spring-boot-configuration-processor:${bootVer}"
 
 //    /*Spring Ai*/
-//    // https://mvnrepository.com/artifact/org.springframework.ai/spring-ai-openai-spring-boot-starter
-//    implementation group: 'org.springframework.ai', name: 'spring-ai-openai-spring-boot-starter'
+//    // https://mvnrepository.com/artifact/org.springframework.ai/spring-ai-openai
+//    implementation group: 'org.springframework.ai', name: 'spring-ai-openai'
 //    implementation 'org.springframework.ai:spring-ai-core'
 //    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
 //
@@ -104,27 +105,25 @@ dependencies {
     /* Spring AI - 1.0.0-M6 전용 설정 */
     // OpenAI 스타터 (OpenAiApi 클래스 등을 포함)
     /* Spring AI - 1.0.0-M6 안정화 버전 */
-// 1. OpenAI 관련 (Gemini 호환용)
-    implementation "org.springframework.ai:spring-ai-openai-spring-boot-starter"
-    implementation "org.springframework.ai:spring-ai-core"
+    // 1. OpenAI 관련 (Gemini 호환용)
+    implementation "org.springframework.ai:spring-ai-core:1.0.0-M6"
+    implementation "org.springframework.ai:spring-ai-openai:1.0.0-M6"
 
 // 2. Vector Store 관련 (Postgres)
 // 핵심: 스타터와 라이브러리를 둘 다 포함하고, pgvector 원본 라이브러리를 추가합니다.
-    implementation "org.springframework.ai:spring-ai-pgvector-store-spring-boot-starter"
-    implementation "org.springframework.ai:spring-ai-pgvector-store"
+    implementation "org.springframework.ai:spring-ai-pgvector-store-spring-boot-starter:1.0.0-M6"
+    implementation "org.springframework.ai:spring-ai-pgvector-store:1.0.0-M6"
     implementation 'com.pgvector:pgvector:0.1.6' // 핵심 브릿지 라이브러리
 
 // 3. Tika (파일 분석용)
-    implementation "org.springframework.ai:spring-ai-tika-document-reader"
+    implementation "org.springframework.ai:spring-ai-tika-document-reader:1.0.0-M6"
 
 // 4. TSID (기존 유지)
     implementation 'io.hypersistence:hypersistence-tsid:2.1.1'
     /* Cache - Caffeine */
-    implementation 'org.springframework.boot:spring-boot-starter-cache' // 스프링 캐시 기본 스타터
-    implementation 'com.github.ben-manes.caffeine:caffeine'           // 실제 카페인 엔진
-    implementation "org.springframework.ai:spring-ai-mcp-client-spring-boot-starter"
-
-	/* Test Scope */
+    implementation 'org.springframework.boot:spring-boot-starter-cache:3.4.0' // 스프링 캐시 기본 스타터
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'           // 실제 카페인 엔진
+    /* Test Scope */
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
