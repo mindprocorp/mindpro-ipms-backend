@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -207,7 +206,7 @@ public class ModelServiceImpl implements ModelService {
         double temperature = config.getAiTemperature() != null ? config.getAiTemperature() : 0.7;
         String type = config.getAiType() != null ? config.getAiType().toUpperCase() : "";
 
-        // GEMINI: RestClient 기반 팩토리 사용 (OpenAiApi는 /v1/chat/completions를 붙여 경로 충돌)
+        // GEMINI: RestClient 기반 팩토리 사용 (OpenAI SDK와 경로 충돌 방지)
         // baseUrl은 /v1beta/openai로 끝나야 함
         if ("GEMINI".equals(type)) {
             String geminiUrl = rawUrl.endsWith("/v1beta/openai") ? rawUrl
@@ -216,16 +215,14 @@ public class ModelServiceImpl implements ModelService {
             return aiConfig.createUserGeminiChatModel(apiKey, geminiUrl, config.getAiModelNm(), temperature);
         }
 
-        // OPENAI / OLLAMA / AZURE: OpenAiApi가 /v1/chat/completions를 자동으로 붙임
+        // OPENAI / OLLAMA / AZURE: OpenAI SDK가 /v1/chat/completions를 자동으로 붙임
         // → baseUrl에 /v1이 이미 있으면 중복되므로 제거 (이전에 /v1이 붙어 저장된 레거시 데이터 대응)
         String baseUrl = rawUrl.endsWith("/v1") ? rawUrl.substring(0, rawUrl.length() - 3) : rawUrl;
 
         return OpenAiChatModel.builder()
-                .openAiApi(OpenAiApi.builder()
+                .options(OpenAiChatOptions.builder()
                         .baseUrl(baseUrl)
                         .apiKey(apiKey)
-                        .build())
-                .defaultOptions(OpenAiChatOptions.builder()
                         .model(config.getAiModelNm())
                         .temperature(temperature)
                         .build())

@@ -22,7 +22,6 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
-    // 전역 로깅 시스템을 Logback에서 Log4j2로 전환하기 위해 기본 로깅 제외
     all {
         exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
     }
@@ -31,25 +30,23 @@ configurations {
 repositories {
 	mavenCentral()
 	maven { url 'https://repo.spring.io/milestone' }
-	maven { url 'https://repo.spring.io/release' }
 }
 
 ext {
-    // 2025년 최신 안정 버전 기준
     set('bootVer', "3.4.0") 
     set('jacksonVer', "2.18.2")
     set('jjwtVer', "0.12.6")
-    //spring AI
-    set('springAiVersion',"1.0.0-M6")
+    set('springAiVersion',"2.0.0")
 }
+
 dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:${bootVer}"
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
     }
 }
-dependencies {
 
+dependencies {
     /* Spring Boot Starters */
     implementation "org.springframework.boot:spring-boot-starter:${bootVer}"
     implementation "org.springframework.boot:spring-boot-starter-web:${bootVer}"
@@ -59,7 +56,7 @@ dependencies {
 
     /* Logging - Log4j2 */
     implementation "org.springframework.boot:spring-boot-starter-log4j2:${bootVer}"
-    implementation 'com.lmax:disruptor:3.4.4' // 비동기 로깅 성능 향상을 위한 필수 라이브러리    
+    implementation 'com.lmax:disruptor:3.4.4'    
     
     /* JWT - JJWT 0.12.6 */
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVer}"
@@ -90,44 +87,26 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
     annotationProcessor "org.springframework.boot:spring-boot-configuration-processor:${bootVer}"
 
-//    /*Spring Ai*/
-//    // https://mvnrepository.com/artifact/org.springframework.ai/spring-ai-openai
-//    implementation group: 'org.springframework.ai', name: 'spring-ai-openai'
-//    implementation 'org.springframework.ai:spring-ai-core'
-//    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
-//
-//	implementation 'io.hypersistence:hypersistence-tsid:2.1.1'
-//    // PostgreSQL Vector Store 지원
-//    implementation 'org.springframework.ai:spring-ai-pgvector-store-spring-boot-starter'
-//    implementation 'org.springframework.ai:spring-ai-pgvector-store' // 직접 명시 추가
-//
-//    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
-    /* Spring AI - 1.0.0-M6 전용 설정 */
-    // OpenAI 스타터 (OpenAiApi 클래스 등을 포함)
-    /* Spring AI - 1.0.0-M6 안정화 버전 */
-    // 1. OpenAI 관련 (Gemini 호환용)
-    implementation "org.springframework.ai:spring-ai-core:1.0.0-M6"
-    implementation "org.springframework.ai:spring-ai-openai:1.0.0-M6"
+    /* Spring AI - 2.0.0 Configuration */
+    implementation "org.springframework.ai:spring-ai-model"
+    implementation "org.springframework.ai:spring-ai-client-chat"
+    implementation "org.springframework.ai:spring-ai-openai"
+    implementation "org.springframework.ai:spring-ai-starter-vector-store-pgvector"
+    implementation "org.springframework.ai:spring-ai-pgvector-store"
+    implementation 'com.pgvector:pgvector:0.1.6'
+    implementation "org.springframework.ai:spring-ai-tika-document-reader"
 
-// 2. Vector Store 관련 (Postgres)
-// 핵심: 스타터와 라이브러리를 둘 다 포함하고, pgvector 원본 라이브러리를 추가합니다.
-    implementation "org.springframework.ai:spring-ai-pgvector-store-spring-boot-starter:1.0.0-M6"
-    implementation "org.springframework.ai:spring-ai-pgvector-store:1.0.0-M6"
-    implementation 'com.pgvector:pgvector:0.1.6' // 핵심 브릿지 라이브러리
-
-// 3. Tika (파일 분석용)
-    implementation "org.springframework.ai:spring-ai-tika-document-reader:1.0.0-M6"
-
-// 4. TSID (기존 유지)
+    /* TSID */
     implementation 'io.hypersistence:hypersistence-tsid:2.1.1'
+
     /* Cache - Caffeine */
-    implementation 'org.springframework.boot:spring-boot-starter-cache:3.4.0' // 스프링 캐시 기본 스타터
-    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'           // 실제 카페인 엔진
+    implementation 'org.springframework.boot:spring-boot-starter-cache:3.4.0'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
     /* Test Scope */
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
-
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

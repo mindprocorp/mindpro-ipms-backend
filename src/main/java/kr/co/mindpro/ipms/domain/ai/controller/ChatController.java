@@ -13,8 +13,6 @@ import kr.co.mindpro.ipms.domain.user.dto.request.UserRequest;
 import kr.co.mindpro.ipms.domain.user.dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

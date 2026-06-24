@@ -6,7 +6,6 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
 
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
@@ -55,26 +54,18 @@ public class AiConfig {
     @Value("${ai.embedding.api-key:ollama}")
     private String embeddingApiKey;
 
-    @Value("${ai.embedding.path:/v1/embeddings}")
-    private String embeddingPath;
-
     /** 임베딩 모델 - 기본값: Google text-embedding-004 (768차원, pgvector 호환) */
     @Bean
     @Primary
     public EmbeddingModel ollamaEmbeddingModel() {
-        OpenAiApi embeddingApi = OpenAiApi.builder()
-                .baseUrl(embeddingBaseUrl)
-                .apiKey(embeddingApiKey)
-                .embeddingsPath(embeddingPath)
-                .build();
-
-        return new OpenAiEmbeddingModel(
-                embeddingApi,
-                MetadataMode.EMBED,
-                OpenAiEmbeddingOptions.builder()
+        return OpenAiEmbeddingModel.builder()
+                .metadataMode(MetadataMode.EMBED)
+                .options(OpenAiEmbeddingOptions.builder()
+                        .baseUrl(embeddingBaseUrl)
+                        .apiKey(embeddingApiKey)
                         .model(embeddingModelName)
-                        .build()
-        );
+                        .build())
+                .build();
     }
 
     /** * 2. PostgreSQL Vector Store 설정 (핵심 수정)
@@ -126,32 +117,48 @@ public class AiConfig {
     @Bean(name = "openaiGpt4oChatModel")
     public ChatModel openaiGpt4oChatModel() {
         return OpenAiChatModel.builder()
-                .openAiApi(OpenAiApi.builder().baseUrl("https://api.openai.com/v1").apiKey(openaiApiKey).build())
-                .defaultOptions(OpenAiChatOptions.builder().model("gpt-4o").temperature(0.7).build())
+                .options(OpenAiChatOptions.builder()
+                        .baseUrl("https://api.openai.com/v1")
+                        .apiKey(openaiApiKey)
+                        .model("gpt-4o")
+                        .temperature(0.7)
+                        .build())
                 .build();
     }
 
     @Bean(name = "openaiGpt4oMiniChatModel")
     public ChatModel openaiGpt4oMiniChatModel() {
         return OpenAiChatModel.builder()
-                .openAiApi(OpenAiApi.builder().baseUrl("https://api.openai.com/v1").apiKey(openaiApiKey).build())
-                .defaultOptions(OpenAiChatOptions.builder().model("gpt-4o-mini").temperature(0.7).build())
+                .options(OpenAiChatOptions.builder()
+                        .baseUrl("https://api.openai.com/v1")
+                        .apiKey(openaiApiKey)
+                        .model("gpt-4o-mini")
+                        .temperature(0.7)
+                        .build())
                 .build();
     }
 
     @Bean(name = "azureOpenAiChatModel")
     public ChatModel azureOpenAiChatModel() {
         return OpenAiChatModel.builder()
-                .openAiApi(OpenAiApi.builder().baseUrl("YOUR_AZURE_OPENAI_ENDPOINT").apiKey("YOUR_AZURE_API_KEY").build())
-                .defaultOptions(OpenAiChatOptions.builder().model("YOUR_AZURE_DEPLOYMENT_NAME").temperature(0.7).build())
+                .options(OpenAiChatOptions.builder()
+                        .baseUrl("YOUR_AZURE_OPENAI_ENDPOINT")
+                        .apiKey("YOUR_AZURE_API_KEY")
+                        .model("YOUR_AZURE_DEPLOYMENT_NAME")
+                        .temperature(0.7)
+                        .build())
                 .build();
     }
 
     @Bean(name = "claudeChatModel")
     public ChatModel claudeChatModel() {
         return OpenAiChatModel.builder()
-                .openAiApi(OpenAiApi.builder().baseUrl("https://api.anthropic.com/v1").apiKey("YOUR_ANTHROPIC_API_KEY").build())
-                .defaultOptions(OpenAiChatOptions.builder().model("claude-3-5-sonnet-20241022").temperature(0.7).build())
+                .options(OpenAiChatOptions.builder()
+                        .baseUrl("https://api.anthropic.com/v1")
+                        .apiKey("YOUR_ANTHROPIC_API_KEY")
+                        .model("claude-3-5-sonnet-20241022")
+                        .temperature(0.7)
+                        .build())
                 .build();
     }
 
@@ -163,7 +170,7 @@ public class AiConfig {
 
     /**
      * 사용자 등록 Gemini 모델 생성 팩토리.
-     * OpenAiApi는 baseUrl에 /v1/chat/completions를 붙이므로 Gemini 경로와 맞지 않아
+     * Gemini는 /v1beta/openai OpenAI 호환 엔드포인트를 사용하므로 별도 RestClient 필요
      * RestClient 기반의 GeminiChatModel을 직접 생성합니다.
      */
     public ChatModel createUserGeminiChatModel(String apiKey, String baseUrl, String model, double temperature) {
@@ -177,7 +184,7 @@ public class AiConfig {
 
     /* --- Gemini API 전용 내부 클래스 (유지) --- */
 
-    private static class GeminiChatModel implements ChatModel, StreamingChatModel {
+    private static class GeminiChatModel implements ChatModel {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GeminiChatModel.class);
 
         private static final List<String> FALLBACK_MODELS = List.of(

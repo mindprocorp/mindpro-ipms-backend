@@ -18,20 +18,24 @@ spring:
   autoconfigure:
     exclude:
       # 1. OpenAI 관련 모든 자동 설정 제외
-      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
       - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
       - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
       - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
 
       # 2. Ollama 관련 자동 설정 제외
-      - org.springframework.ai.autoconfigure.ollama.OllamaAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
 
       # 3. 관찰(Observation/Metrics) 및 모니터링 제외 (현재 에러의 핵심 원인)
-      - org.springframework.ai.autoconfigure.chat.observation.ChatObservationAutoConfiguration
-      - org.springframework.ai.autoconfigure.image.observation.ImageObservationAutoConfiguration
+      - org.springframework.ai.model.chat.observation.autoconfigure.ChatObservationAutoConfiguration
+      - org.springframework.ai.model.image.observation.autoconfigure.ImageObservationAutoConfiguration
 
       # 4. 기타 유틸리티 설정 제외
-      - org.springframework.ai.autoconfigure.chat.client.ChatClientAutoConfiguration
+      - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
   # 2. 데이터베이스 및 HikariCP 설정
   datasource:
    # 1번 DB (기존 PostgreSQL - Primary)
