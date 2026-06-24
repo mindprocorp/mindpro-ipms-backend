@@ -45,7 +45,7 @@
 ### ⚙️ 1. 핵심 기술 스택 (Core Tech Stack)
 | **Category**       | **Technology**                       |**Version / Details**|
 |:-------------------|:-------------------------------------|---:|
-| AI &nbsp;          | &nbsp; Spring Boot AI &nbsp;         |&nbsp; 1.0.0-M6 &nbsp; |
+| AI &nbsp;          | &nbsp; Spring Boot AI &nbsp;         |&nbsp; 2.0.0 &nbsp; |
 | Framework &nbsp;   | &nbsp; Spring Boot &nbsp;            |&nbsp; 3.4.0 &nbsp; |
 | Language &nbsp;    | &nbsp; Java &nbsp;                   |&nbsp; 17 &nbsp; |
 | Database &nbsp;    | &nbsp; PostgreSQL &nbsp;             |
