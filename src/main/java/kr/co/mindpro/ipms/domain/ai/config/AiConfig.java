@@ -16,7 +16,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.document.MetadataMode;
-import org.springframework.ai.retry.RetryUtils;
 import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.client.RestClient;
@@ -56,7 +55,6 @@ public class AiConfig {
     @Value("${ai.embedding.api-key:ollama}")
     private String embeddingApiKey;
 
-    // Ollama OpenAI 호환 임베딩 엔드포인트: {baseUrl}/v1/embeddings
     @Value("${ai.embedding.path:/v1/embeddings}")
     private String embeddingPath;
 
@@ -75,8 +73,7 @@ public class AiConfig {
                 MetadataMode.EMBED,
                 OpenAiEmbeddingOptions.builder()
                         .model(embeddingModelName)
-                        .build(),
-                RetryUtils.DEFAULT_RETRY_TEMPLATE
+                        .build()
         );
     }
 
@@ -85,13 +82,10 @@ public class AiConfig {
      */
     @Bean
     public VectorStore vectorStore(JdbcTemplate jdbcTemplate, EmbeddingModel embeddingModel) {
-        // [핵심] schemaName을 별도로 주지 말고, 테이블 이름에 스키마를 포함시킵니다.
-        // 따옴표 처리를 정확히 해서 대문자 스키마를 인식하게 합니다.
         String schemaQualifiedTable = "\"MP_IPMS_PA\".vector_store";
 
         return PgVectorStore.builder(jdbcTemplate, embeddingModel)
-                .vectorTableName(schemaQualifiedTable) // 여기에 풀 경로 주입
-                // .schemaName(...) 은 절대 호출하지 마세요. (기본값 public을 무시하게 됨)
+                .vectorTableName(schemaQualifiedTable)
                 .dimensions(768)
                 .distanceType(PgVectorStore.PgDistanceType.COSINE_DISTANCE)
                 .initializeSchema(false)
@@ -186,7 +180,6 @@ public class AiConfig {
     private static class GeminiChatModel implements ChatModel, StreamingChatModel {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GeminiChatModel.class);
 
-        // 메인 모델이 오버로드되면 순차 폴백
         private static final List<String> FALLBACK_MODELS = List.of(
                 "gemini-2.5-flash"
         );
@@ -210,7 +203,6 @@ public class AiConfig {
                 messages.add(new GeminiMessage(msg.getMessageType().name().toLowerCase(), msg.getText()));
             }
 
-            // 시도 순서: 메인 모델 → 폴백 모델들
             List<String> modelChain = new ArrayList<>();
             modelChain.add(model);
             for (String fb : FALLBACK_MODELS) {
@@ -234,7 +226,6 @@ public class AiConfig {
                     log.warn("Gemini 모델({}) 호출 실패: {}", currentModel, ex.getMessage());
                 }
             }
-            // 모든 모델 실패
             String msg = "AI 서비스가 일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요.";
             log.error("Gemini 전체 모델 체인 실패", lastError);
             return new ChatResponse(List.of(new Generation(new AssistantMessage(msg), null)), null);
@@ -253,13 +244,13 @@ public class AiConfig {
                             .body(request)
                             .retrieve()
                             .body(GeminiResponse.class);
-                } catch (HttpServerErrorException ex) {              // 5xx (503 포함)
+                } catch (HttpServerErrorException ex) {
                     last = ex;
-                } catch (HttpClientErrorException.TooManyRequests ex) { // 429
+                } catch (HttpClientErrorException.TooManyRequests ex) {
                     last = ex;
-                } catch (ResourceAccessException ex) {               // 타임아웃/네트워크
+                } catch (ResourceAccessException ex) {
                     last = ex;
-                } catch (HttpClientErrorException ex) {              // 4xx (재시도 무의미)
+                } catch (HttpClientErrorException ex) {
                     throw ex;
                 }
 
