@@ -4,7 +4,7 @@
 # Log file
 *.log
 vector_store.json
-
+.DS_Store
 # BlueJ files
 *.ctxt
 build/
